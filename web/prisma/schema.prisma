@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Group {
+  id                   Int          @id @default(autoincrement())
+  name                 String
+  fiscalYearStartMonth Int
+  createdAt            DateTime     @default(now())
+  members              Member[]
+  inviteCodes          InviteCode[]
+  ledgers              Ledger[]
+  events               Event[]
+}
+
+model Member {
+  id                Int          @id @default(autoincrement())
+  groupId           Int
+  group             Group        @relation(fields: [groupId], references: [id])
+  displayName       String
+  role              String
+  createdAt         DateTime     @default(now())
+  usedInviteCodes   InviteCode[] @relation("InviteCodeUsedBy")
+  ledgerEntries     Ledger[]     @relation("LedgerCreatedBy")
+  approvals         Approval[]   @relation("ApprovalActor")
+  attendances       Attendance[]
+}
+
+model InviteCode {
+  id             Int       @id @default(autoincrement())
+  groupId        Int
+  group          Group     @relation(fields: [groupId], references: [id])
+  code           String    @unique
+  role           String
+  expiresAt      DateTime?
+  createdAt      DateTime  @default(now())
+  usedAt         DateTime?
+  usedByMemberId Int?
+  usedByMember   Member?   @relation("InviteCodeUsedBy", fields: [usedByMemberId], references: [id])
+}
+
+model Ledger {
+  id                Int           @id @default(autoincrement())
+  groupId           Int
+  group             Group         @relation(fields: [groupId], references: [id])
+  createdByMemberId Int
+  createdBy         Member        @relation("LedgerCreatedBy", fields: [createdByMemberId], references: [id])
+  title             String
+  amount            Int
+  receiptUrl        String?
+  notes             String?
+  status            LedgerStatus  @default(PENDING)
+  approvals         Approval[]
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+model Approval {
+  id               Int            @id @default(autoincrement())
+  ledgerId         Int
+  ledger           Ledger         @relation(fields: [ledgerId], references: [id])
+  actedByMemberId  Int
+  actedBy          Member         @relation("ApprovalActor", fields: [actedByMemberId], references: [id])
+  action           ApprovalAction
+  comment          String?
+  createdAt        DateTime       @default(now())
+}
+
+model Event {
+  id          Int           @id @default(autoincrement())
+  groupId     Int
+  group       Group         @relation(fields: [groupId], references: [id])
+  title       String
+  description String?
+  location    String?
+  startsAt    DateTime
+  endsAt      DateTime?
+  attendances Attendance[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Attendance {
+  id          Int              @id @default(autoincrement())
+  eventId     Int
+  event       Event            @relation(fields: [eventId], references: [id])
+  memberId    Int
+  member      Member           @relation(fields: [memberId], references: [id])
+  status      AttendanceStatus @default(MAYBE)
+  comment     String?
+  respondedAt DateTime         @default(now())
+  createdAt   DateTime         @default(now())
+
+  @@unique([eventId, memberId])
+}
+
+enum LedgerStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ApprovalAction {
+  APPROVED
+  REJECTED
+}
+
+enum AttendanceStatus {
+  YES
+  NO
+  MAYBE
+}
