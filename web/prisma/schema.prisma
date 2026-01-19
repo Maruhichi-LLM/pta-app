@@ -24,6 +24,8 @@ model Member {
   group             Group        @relation(fields: [groupId], references: [id])
   displayName       String
   role              String
+  email             String?      @unique
+  passwordHash      String?
   createdAt         DateTime     @default(now())
   usedInviteCodes   InviteCode[] @relation("InviteCodeUsedBy")
   ledgerEntries     Ledger[]     @relation("LedgerCreatedBy")

@@ -10,14 +10,15 @@ type AttendanceRequest = {
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await getSessionFromCookies();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const eventId = Number(params.id);
+  const eventId = Number(id);
   if (!Number.isInteger(eventId)) {
     return NextResponse.json({ error: "Invalid event id" }, { status: 400 });
   }

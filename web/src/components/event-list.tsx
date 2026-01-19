@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import { EventForm } from "./event-form";
 
 export type EventAttendanceDisplay = {
   eventId: number;
@@ -25,6 +26,7 @@ export type EventDisplay = {
 type Props = {
   events: EventDisplay[];
   memberId: number;
+  canEdit?: boolean;
 };
 
 const formatter = new Intl.DateTimeFormat("ja-JP", {
@@ -39,7 +41,7 @@ const statusLabels = {
   NO: "不参加",
 };
 
-export function EventList({ events, memberId }: Props) {
+export function EventList({ events, memberId, canEdit = false }: Props) {
   if (events.length === 0) {
     return (
       <p className="rounded-xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-500">
@@ -51,13 +53,24 @@ export function EventList({ events, memberId }: Props) {
   return (
     <div className="space-y-6">
       {events.map((event) => (
-        <EventCard key={event.id} event={event} memberId={memberId} />
+        <EventCard
+          key={event.id}
+          event={event}
+          memberId={memberId}
+          canEdit={canEdit}
+        />
       ))}
     </div>
   );
 }
 
-function EventCard({ event, memberId }: { event: EventDisplay; memberId: number }) {
+type EventCardProps = {
+  event: EventDisplay;
+  memberId: number;
+  canEdit: boolean;
+};
+
+function EventCard({ event, memberId, canEdit }: EventCardProps) {
   const router = useRouter();
   const existing = event.attendances.find((item) => item.memberId === memberId);
   const [status, setStatus] = useState<"YES" | "NO" | "MAYBE">(
@@ -66,6 +79,7 @@ function EventCard({ event, memberId }: { event: EventDisplay; memberId: number 
   const [comment, setComment] = useState(existing?.comment ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     setStatus(existing?.status ?? "MAYBE");
@@ -125,9 +139,28 @@ function EventCard({ event, memberId }: { event: EventDisplay; memberId: number 
           <p>未定: {counts.MAYBE}</p>
           <p>不参加: {counts.NO}</p>
         </div>
+        {canEdit ? (
+          <button
+            type="button"
+            onClick={() => setIsEditing((prev) => !prev)}
+            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-50"
+          >
+            {isEditing ? "編集を閉じる" : "編集"}
+          </button>
+        ) : null}
       </div>
       {event.description ? (
         <p className="mt-3 text-sm text-zinc-600">{event.description}</p>
+      ) : null}
+
+      {isEditing ? (
+        <div className="mt-4">
+          <EventForm
+            mode="edit"
+            event={event}
+            onClose={() => setIsEditing(false)}
+          />
+        </div>
       ) : null}
 
       <form onSubmit={handleSubmit} className="mt-4 space-y-3">

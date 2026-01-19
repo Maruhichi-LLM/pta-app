@@ -14,12 +14,26 @@ npx prisma db seed
 
 `.env` には `DATABASE_URL=postgresql://app:app@localhost:5432/app` と `SESSION_SECRET` を設定してください。Prisma の migrate/seed は上記 `.env` を参照します。
 
+## 認証フロー
+
+- `/register` : 団体名・会計年度・代表者情報（メール/パスワード）を入力して団体と管理者アカウントを作成します。
+- `/login` : 登録済みのメールアドレスとパスワードでログインします。
+- `/join` : 招待コードを受け取ったメンバーが、表示名・メール・パスワードを入力して参加します。
+
 ## 最小画面
 
 - `/join` : 招待コード（例: `DEMO1234`）と表示名を入力すると Member が作成され、cookie セッションが発行されます。
 - `/home` : セッション情報から団体名と自分の表示名を表示し、ログアウトボタンで cookie を削除できます。
 - `/ledger` : 会計仕訳の登録と金額・証憑URL表示、承認/却下および承認ログの確認ができます。
-- `/events` : イベント一覧と出欠（yes / maybe / no + コメント）を登録・確認できます。
+- `/events` : イベント一覧と出欠（yes / maybe / no + コメント）を登録・確認できます。`管理者` ロールはイベント作成・編集、CSV/PDF エクスポートが可能です。
+
+## 権限と初期アカウント
+
+- `管理者` : 団体設定・イベント作成・エクスポートなど全権操作  
+  - Seed では `demo-admin@example.com / password123`
+- `会計係` : 会計実務を担当（`demo-accountant@example.com / password123`）
+- `メンバー` : 一般メンバー（招待コード `DEMO1234` で参加）
+- 会計係用招待コード `ACCT1234`、一般メンバー用 `DEMO1234`
 
 ## Getting Started
 

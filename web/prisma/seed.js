@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
@@ -18,27 +19,50 @@ async function main() {
     },
   });
 
+  const adminPasswordHash = await bcrypt.hash('password123', 10);
+  const accountantPasswordHash = await bcrypt.hash('password123', 10);
+
   const owner = await prisma.member.create({
     data: {
       groupId: group.id,
       displayName: 'Demo Owner',
-      role: 'owner',
+      role: '管理者',
+      email: 'demo-admin@example.com',
+      passwordHash: adminPasswordHash,
     },
   });
 
-  await prisma.inviteCode.create({
+  const accountant = await prisma.member.create({
     data: {
       groupId: group.id,
-      code: 'DEMO1234',
-      role: 'member',
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      displayName: 'Demo Accountant',
+      role: '会計係',
+      email: 'demo-accountant@example.com',
+      passwordHash: accountantPasswordHash,
     },
+  });
+
+  await prisma.inviteCode.createMany({
+    data: [
+      {
+        groupId: group.id,
+        code: 'DEMO1234',
+        role: 'メンバー',
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+      {
+        groupId: group.id,
+        code: 'ACCT1234',
+        role: '会計係',
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+    ],
   });
 
   await prisma.ledger.create({
     data: {
       groupId: group.id,
-      createdByMemberId: owner.id,
+      createdByMemberId: accountant.id,
       title: 'イベント備品購入',
       amount: 12000,
       receiptUrl: 'https://example.com/receipt/demo',
@@ -66,7 +90,16 @@ async function main() {
     },
   });
 
-  console.log('Seed completed:', { group, owner, event });
+  await prisma.attendance.create({
+    data: {
+      eventId: event.id,
+      memberId: accountant.id,
+      status: 'MAYBE',
+      comment: '日程調整中です。',
+    },
+  });
+
+  console.log('Seed completed:', { group, owner, accountant, event });
 }
 
 main()

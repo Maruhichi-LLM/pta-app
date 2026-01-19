@@ -1,20 +1,41 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 import { buildSessionCookie } from "@/lib/session";
+import { ROLE_MEMBER } from "@/lib/roles";
 
 type JoinRequest = {
   code?: string;
   displayName?: string;
+  email?: string;
+  password?: string;
 };
 
 export async function POST(request: Request) {
   const body = ((await request.json().catch(() => ({}))) ?? {}) as JoinRequest;
   const code = body.code?.trim().toUpperCase();
   const displayName = body.displayName?.trim();
+  const emailRaw = body.email?.trim();
+  const password = body.password;
 
-  if (!code || !displayName) {
+  if (!code || !displayName || !emailRaw || !password) {
     return NextResponse.json(
-      { error: "招待コードと表示名を入力してください。" },
+      {
+        error:
+          "招待コード、表示名、メールアドレス、パスワードを入力してください。",
+      },
+      { status: 400 }
+    );
+  }
+
+  const email = emailRaw.toLowerCase();
+
+  const existing = await prisma.member.findUnique({
+    where: { email },
+  });
+  if (existing) {
+    return NextResponse.json(
+      { error: "このメールアドレスは既に使用されています。" },
       { status: 400 }
     );
   }
@@ -34,12 +55,16 @@ export async function POST(request: Request) {
     );
   }
 
+  const passwordHash = await bcrypt.hash(password, 10);
+
   const member = await prisma.$transaction(async (tx) => {
     const createdMember = await tx.member.create({
       data: {
         groupId: invite.groupId,
         displayName,
-        role: invite.role ?? "member",
+        role: invite.role ?? ROLE_MEMBER,
+        email,
+        passwordHash,
       },
     });
 

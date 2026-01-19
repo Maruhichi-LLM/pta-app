@@ -4,10 +4,8 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function JoinPage() {
+export default function LoginPage() {
   const router = useRouter();
-  const [code, setCode] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -15,30 +13,24 @@ export default function JoinPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!code || !displayName || !email || !password) {
-      setError("すべての項目を入力してください。");
-      return;
-    }
-    setError(null);
     setIsSubmitting(true);
-
+    setError(null);
     try {
-      const response = await fetch("/api/join", {
+      const response = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, displayName, email, password }),
+        body: JSON.stringify({ email, password }),
       });
 
       if (!response.ok) {
         const data = (await response.json().catch(() => ({}))) as {
           error?: string;
         };
-        setError(data.error ?? "参加に失敗しました。");
+        setError(data.error ?? "ログインに失敗しました。");
         return;
       }
-
       router.push("/home");
-    } catch (err) {
+    } catch {
       setError("通信に失敗しました。時間をおいて再度お試しください。");
     } finally {
       setIsSubmitting(false);
@@ -51,30 +43,7 @@ export default function JoinPage() {
         onSubmit={handleSubmit}
         className="w-full max-w-md rounded-2xl bg-white p-8 shadow"
       >
-        <h1 className="mb-6 text-2xl font-semibold text-zinc-900">
-          招待コードで参加
-        </h1>
-        <label className="mb-4 block text-sm font-medium text-zinc-700">
-          招待コード
-          <input
-            type="text"
-            value={code}
-            onChange={(event) => setCode(event.target.value.toUpperCase())}
-            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-            placeholder="例: DEMO1234"
-            autoComplete="off"
-          />
-        </label>
-        <label className="mb-4 block text-sm font-medium text-zinc-700">
-          表示名
-          <input
-            type="text"
-            value={displayName}
-            onChange={(event) => setDisplayName(event.target.value)}
-            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-            placeholder="山田 太郎"
-          />
-        </label>
+        <h1 className="mb-6 text-2xl font-semibold text-zinc-900">ログイン</h1>
         <label className="mb-4 block text-sm font-medium text-zinc-700">
           メールアドレス
           <input
@@ -105,24 +74,15 @@ export default function JoinPage() {
           disabled={isSubmitting}
           className="w-full rounded-lg bg-sky-600 py-2 text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-300"
         >
-          {isSubmitting ? "登録中..." : "参加する"}
+          {isSubmitting ? "送信中..." : "ログイン"}
         </button>
-        <div className="mt-4 text-center text-sm text-zinc-600">
-          <p>
-            既にアカウントをお持ちの場合は{" "}
-            <Link href="/login" className="text-sky-600 underline">
-              ログイン
-            </Link>
-            してください。
-          </p>
-          <p className="mt-1">
-            新しく団体を作成する場合は{" "}
-            <Link href="/register" className="text-sky-600 underline">
-              団体登録
-            </Link>
-            から始めてください。
-          </p>
-        </div>
+        <p className="mt-4 text-center text-sm text-zinc-600">
+          団体を新しく登録する場合は{" "}
+          <Link href="/register" className="text-sky-600 underline">
+            団体登録
+          </Link>
+          から始めてください。
+        </p>
       </form>
     </div>
   );
