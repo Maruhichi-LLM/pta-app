@@ -16,6 +16,9 @@ model Group {
   inviteCodes          InviteCode[]
   ledgers              Ledger[]
   events               Event[]
+  accountingSetting    AccountingSetting?
+  accounts             Account[]
+  financialAccounts    FinancialAccount[]
 }
 
 model Member {
@@ -116,4 +119,53 @@ enum AttendanceStatus {
   YES
   NO
   MAYBE
+}
+
+model AccountingSetting {
+  id                   Int      @id @default(autoincrement())
+  groupId              Int      @unique
+  group                Group    @relation(fields: [groupId], references: [id])
+  fiscalYearStartMonth Int
+  fiscalYearEndMonth   Int
+  approvalFlow         String?
+  carryoverAmount      Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model Account {
+  id         Int         @id @default(autoincrement())
+  groupId    Int
+  group      Group       @relation(fields: [groupId], references: [id])
+  name       String
+  type       AccountType
+  isCustom   Boolean     @default(false)
+  isArchived Boolean     @default(false)
+  order      Int         @default(0)
+  createdAt  DateTime    @default(now())
+}
+
+model FinancialAccount {
+  id             Int                  @id @default(autoincrement())
+  groupId        Int
+  group          Group                @relation(fields: [groupId], references: [id])
+  name           String
+  type           FinancialAccountType
+  bankName       String?
+  accountNumber  String?
+  initialBalance Int                  @default(0)
+  currentBalance Int                  @default(0)
+  createdAt      DateTime             @default(now())
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  INCOME
+  EXPENSE
+}
+
+enum FinancialAccountType {
+  CASH
+  BANK
 }
