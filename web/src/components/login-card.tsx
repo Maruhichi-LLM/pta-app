@@ -14,7 +14,7 @@ type Props = {
 export function LoginCard({
   heading = "ログイン",
   showRegisterHint = true,
-  onSuccessHref = "/home",
+  onSuccessHref = "/calendar",
   compact = false,
 }: Props) {
   const router = useRouter();

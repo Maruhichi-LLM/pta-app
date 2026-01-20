@@ -7,6 +7,7 @@ import { LedgerCreateForm } from "@/components/ledger-create-form";
 import { revalidatePath } from "next/cache";
 import { ROLE_ADMIN } from "@/lib/roles";
 import { ensureModuleEnabled } from "@/lib/modules";
+import { KNOT_CALENDAR_PATH } from "@/lib/routes";
 
 const MONTH_VALUES = Array.from({ length: 12 }, (_, index) => index + 1);
 const ACCOUNT_TYPE_LABELS: Record<string, string> = {
@@ -311,10 +312,10 @@ export default async function LedgerPage() {
             承認と証憑の管理をここで行います。
           </p>
           <Link
-            href="/home"
+            href={KNOT_CALENDAR_PATH}
             className="mt-4 inline-flex text-sm text-sky-600 underline"
           >
-            ← ホームへ戻る
+            ← Knot Calendar へ戻る
           </Link>
         </header>
 

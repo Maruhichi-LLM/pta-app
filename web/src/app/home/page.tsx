@@ -132,48 +132,16 @@ function formatDateParam(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function ManagementPlaceholder({ groupName }: { groupName: string }) {
-  return (
-    <div className="min-h-screen bg-zinc-50 px-4 py-10">
-      <div className="mx-auto max-w-4xl rounded-2xl border border-dashed border-zinc-200 bg-white/70 p-8 text-center shadow-sm">
-        <p className="text-sm uppercase tracking-wide text-zinc-500">
-          Knot Management
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold text-zinc-900">
-          {groupName}
-        </h1>
-        <p className="mt-4 text-sm text-zinc-600">
-          メンバーや権限の設定エリアは今後ここに集約予定です。
-        </p>
-        <Link
-          href="/home"
-          className="mt-6 inline-flex text-sm text-sky-600 underline"
-        >
-          ← ホームへ戻る
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-export default async function HomePage({
-  searchParams,
-}: {
-  searchParams: { module?: string };
-}) {
+export default async function HomePage() {
   const session = await getSessionFromCookies();
   if (!session) {
     redirect("/join");
   }
+  await ensureModuleEnabled(session.groupId, "calendar");
 
   const member = await fetchMember(session.memberId);
   if (!member || !member.group) {
     redirect("/join");
-  }
-
-  if (searchParams?.module === "management") {
-    await ensureModuleEnabled(member.groupId, "management");
-    return <ManagementPlaceholder groupName={member.group.name} />;
   }
 
   const events = await fetchMonthlyEvents(member.groupId);

@@ -6,6 +6,7 @@ import { EventList, type EventDisplay } from "@/components/event-list";
 import { EventForm } from "@/components/event-form";
 import { ROLE_ADMIN } from "@/lib/roles";
 import { ensureModuleEnabled } from "@/lib/modules";
+import { KNOT_CALENDAR_PATH } from "@/lib/routes";
 
 function buildInitialStartsAt(date?: string) {
   if (!date) return undefined;
@@ -101,10 +102,10 @@ export default async function EventsPage({
               カレンダー専用ビューは今後追加予定です。
             </p>
             <Link
-              href="/home"
+              href={KNOT_CALENDAR_PATH}
               className="mt-4 inline-flex text-sm text-sky-600 underline"
             >
-              ← ホームへ戻る
+              ← Knot Calendar へ戻る
             </Link>
           </header>
           <CalendarPlaceholder />
@@ -135,10 +136,10 @@ export default async function EventsPage({
             予定の共有と参加可否を確認できます。
           </p>
           <Link
-            href="/home"
+            href={KNOT_CALENDAR_PATH}
             className="mt-4 inline-flex text-sm text-sky-600 underline"
           >
-            ← ホームへ戻る
+            ← Knot Calendar へ戻る
           </Link>
           {canEdit ? (
             <div className="mt-4 flex flex-wrap gap-3 text-sm">

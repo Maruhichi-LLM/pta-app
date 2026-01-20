@@ -10,11 +10,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/calendar",
-        destination: "/events?module=calendar",
-      },
-      {
-        source: "/management",
-        destination: "/home?module=management",
+        destination: "/home",
       },
     ];
   },

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { prisma } from "./prisma";
+import { KNOT_HOME_PATH } from "./routes";
 
 export const MODULE_LINKS = [
   { key: "event", label: "Knot Event", href: "/events" },
@@ -38,6 +39,6 @@ export async function ensureModuleEnabled(
   });
   const modules = resolveModules(group?.enabledModules);
   if (!modules.includes(module)) {
-    redirect("/home");
+    redirect(KNOT_HOME_PATH);
   }
 }

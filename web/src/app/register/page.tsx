@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { KNOT_CALENDAR_PATH } from "@/lib/routes";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -39,7 +40,7 @@ export default function RegisterPage() {
         return;
       }
 
-      router.push("/home");
+      router.push(KNOT_CALENDAR_PATH);
     } catch (err) {
       setError("通信に失敗しました。時間をおいて再度お試しください。");
     } finally {

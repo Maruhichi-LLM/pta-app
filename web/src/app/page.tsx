@@ -6,6 +6,7 @@ import {
   ModuleKey,
   filterEnabledModules,
 } from "@/lib/modules";
+import { KNOT_CALENDAR_PATH } from "@/lib/routes";
 
 const COPY = [
   "Knot is not only for PTA.",
@@ -17,7 +18,7 @@ const COPY = [
 const MODULE_DESCRIPTIONS: Record<ModuleKey, string> = {
   event: "行事の登録とメンバーの出欠を一つに。",
   accounting: "経費精算と承認フローをシンプルに。",
-  calendar: "行事を月間ビューで共有（準備中）。",
+  calendar: "行事を月間ビューで共有。",
   management: "招待や機能ON/OFF、収支内訳書・予算設定を管理。",
 };
 
@@ -34,8 +35,8 @@ export default async function RootPage() {
     enabled = filterEnabledModules(group?.enabledModules).map(
       (module) => module.key
     );
-    actionHref = "/home";
-    actionLabel = "Knot Home へ";
+    actionHref = KNOT_CALENDAR_PATH;
+    actionLabel = "Knot Calendar へ";
   }
 
   return (
@@ -87,10 +88,17 @@ export default async function RootPage() {
                 className="flex h-full flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
               >
                 <div>
-                  <p className="text-sm uppercase tracking-wide text-zinc-400">
-                    {isEnabled ? "Enabled" : session ? "Disabled" : "Preview"}
+                  <p className="text-xs uppercase tracking-wide text-sky-600">
+                    {module.label}
+                    <span className="ml-2 text-[0.65rem] text-zinc-400">
+                      {isEnabled
+                        ? "MODULE ENABLED"
+                        : session
+                        ? "MODULE DISABLED"
+                        : "PREVIEW"}
+                    </span>
                   </p>
-                  <h3 className="mt-1 text-2xl font-semibold text-zinc-900">
+                  <h3 className="mt-2 text-2xl font-semibold text-zinc-900">
                     {module.label}
                   </h3>
                   <p className="mt-3 text-sm text-zinc-600">
