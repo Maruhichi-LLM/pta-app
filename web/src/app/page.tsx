@@ -6,7 +6,6 @@ import {
   ModuleKey,
   filterEnabledModules,
 } from "@/lib/modules";
-import { KNOT_CALENDAR_PATH } from "@/lib/routes";
 
 const COPY = [
   "Knot is not only for PTA.",
@@ -25,8 +24,6 @@ const MODULE_DESCRIPTIONS: Record<ModuleKey, string> = {
 export default async function RootPage() {
   const session = await getSessionFromCookies();
   let enabled = MODULE_LINKS.map((module) => module.key);
-  let actionHref = "/join";
-  let actionLabel = "Knot を始める";
   if (session) {
     const group = await prisma.group.findUnique({
       where: { id: session.groupId },
@@ -35,8 +32,6 @@ export default async function RootPage() {
     enabled = filterEnabledModules(group?.enabledModules).map(
       (module) => module.key
     );
-    actionHref = KNOT_CALENDAR_PATH;
-    actionLabel = "Knot Calendar へ";
   }
 
   return (
@@ -47,22 +42,22 @@ export default async function RootPage() {
             {line}
           </p>
         ))}
-        <div className="space-x-3">
-          <Link
-            href={actionHref}
-            className="inline-flex rounded-full bg-zinc-900 px-6 py-2 text-sm font-semibold text-white transition hover:bg-zinc-700"
-          >
-            {actionLabel}
-          </Link>
-          {!session ? (
+        {!session ? (
+          <div className="space-x-3">
+            <Link
+              href="/join"
+              className="inline-flex rounded-full bg-zinc-900 px-6 py-2 text-sm font-semibold text-white transition hover:bg-zinc-700"
+            >
+              Knot を始める
+            </Link>
             <Link
               href="/join"
               className="inline-flex rounded-full border border-zinc-200 px-6 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
             >
               招待コードで参加
             </Link>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
 
       <section className="mx-auto mt-16 max-w-5xl text-left">
