@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionFromCookies } from "@/lib/session";
 import { revalidatePath } from "next/cache";
-import { ROLE_ADMIN } from "@/lib/roles";
+import { ROLE_ADMIN, ROLE_ACCOUNTANT, ROLE_MEMBER } from "@/lib/roles";
 import { ensureModuleEnabled } from "@/lib/modules";
 
 const MONTH_VALUES = Array.from({ length: 12 }, (_, index) => index + 1);
@@ -23,26 +23,53 @@ const currencyFormatter = new Intl.NumberFormat("ja-JP", {
   maximumFractionDigits: 0,
 });
 
+const ROLE_OPTIONS = [ROLE_ADMIN, ROLE_ACCOUNTANT, ROLE_MEMBER] as const;
+
+function generateInviteCodeValue() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 8; i += 1) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
 async function fetchManagementData(groupId: number, memberId: number) {
-  const [group, member, accountingSetting, accounts, financialAccounts, budgets] =
-    await Promise.all([
-      prisma.group.findUnique({ where: { id: groupId } }),
-      prisma.member.findUnique({ where: { id: memberId } }),
-      prisma.accountingSetting.findUnique({ where: { groupId } }),
-      prisma.account.findMany({
-        where: { groupId },
-        orderBy: { order: "asc" },
-      }),
-      prisma.financialAccount.findMany({
-        where: { groupId },
-        orderBy: { createdAt: "asc" },
-      }),
-      prisma.budget.findMany({
-        where: { groupId },
-        include: { account: true },
-        orderBy: [{ fiscalYear: "desc" }, { accountId: "asc" }],
-      }),
-    ]);
+  const [
+    group,
+    member,
+    accountingSetting,
+    accounts,
+    financialAccounts,
+    budgets,
+    members,
+    inviteCodes,
+  ] = await Promise.all([
+    prisma.group.findUnique({ where: { id: groupId } }),
+    prisma.member.findUnique({ where: { id: memberId } }),
+    prisma.accountingSetting.findUnique({ where: { groupId } }),
+    prisma.account.findMany({
+      where: { groupId },
+      orderBy: { order: "asc" },
+    }),
+    prisma.financialAccount.findMany({
+      where: { groupId },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.budget.findMany({
+      where: { groupId },
+      include: { account: true },
+      orderBy: [{ fiscalYear: "desc" }, { accountId: "asc" }],
+    }),
+    prisma.member.findMany({
+      where: { groupId },
+      orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+    }),
+    prisma.inviteCode.findMany({
+      where: { groupId },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
   return {
     group,
     member,
@@ -50,6 +77,8 @@ async function fetchManagementData(groupId: number, memberId: number) {
     accounts,
     financialAccounts,
     budgets,
+    members,
+    inviteCodes,
   };
 }
 
@@ -240,6 +269,89 @@ async function createBudgetAction(formData: FormData) {
   revalidatePath("/management");
 }
 
+async function createInviteCodeAction(formData: FormData) {
+  "use server";
+  const { session } = await requireAdminSession();
+  const roleInput = (formData.get("role") as string | null) ?? ROLE_MEMBER;
+  const role =
+    ROLE_OPTIONS.find((candidate) => candidate === roleInput) ?? null;
+  const expiresInDays = Number(formData.get("expiresInDays") ?? 0);
+
+  if (!role) {
+    throw new Error("不正な権限です。");
+  }
+
+  const expiresAt =
+    Number.isFinite(expiresInDays) && expiresInDays > 0
+      ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
+      : null;
+
+  await prisma.$transaction(async (tx) => {
+    let codeValue = "";
+    do {
+      codeValue = generateInviteCodeValue();
+    } while (
+      await tx.inviteCode.findUnique({
+        where: { code: codeValue },
+      })
+    );
+
+    await tx.inviteCode.create({
+      data: {
+        groupId: session.groupId,
+        code: codeValue,
+        role,
+        expiresAt,
+      },
+    });
+  });
+
+  revalidatePath("/management");
+}
+
+async function updateMemberRoleAction(formData: FormData) {
+  "use server";
+  const { session } = await requireAdminSession();
+  const memberId = Number(formData.get("memberId"));
+  const roleInput = (formData.get("role") as string | null) ?? ROLE_MEMBER;
+  const role =
+    ROLE_OPTIONS.find((candidate) => candidate === roleInput) ?? null;
+
+  if (!Number.isInteger(memberId)) {
+    throw new Error("メンバーを選択してください。");
+  }
+  if (!role) {
+    throw new Error("不正な権限です。");
+  }
+
+  const member = await prisma.member.findFirst({
+    where: { id: memberId, groupId: session.groupId },
+  });
+  if (!member) {
+    throw new Error("メンバーが見つかりません。");
+  }
+
+  if (member.role === ROLE_ADMIN && role !== ROLE_ADMIN) {
+    const remainingAdmins = await prisma.member.count({
+      where: {
+        groupId: session.groupId,
+        role: ROLE_ADMIN,
+        NOT: { id: memberId },
+      },
+    });
+    if (remainingAdmins === 0) {
+      throw new Error("少なくとも1人の管理者が必要です。");
+    }
+  }
+
+  await prisma.member.update({
+    where: { id: member.id },
+    data: { role },
+  });
+
+  revalidatePath("/management");
+}
+
 export default async function ManagementPage() {
   const session = await getSessionFromCookies();
   if (!session) {
@@ -267,10 +379,25 @@ export default async function ManagementPage() {
   const defaultAccounts = data.accounts.filter((account) => !account.isCustom);
   const customAccounts = data.accounts.filter((account) => account.isCustom);
   const budgets = data.budgets;
+  const membersList = data.members ?? [];
+  const inviteCodes = data.inviteCodes ?? [];
   const isAccountingEnabled = setting.accountingEnabled !== false;
   const showBudgetSection = setting.budgetEnabled !== false;
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from({ length: 5 }, (_, idx) => currentYear - 1 + idx);
+  const formatDateTime = (value?: Date | string | null) => {
+    if (!value) {
+      return "—";
+    }
+    const date =
+      value instanceof Date ? value : value ? new Date(value) : undefined;
+    return date
+      ? date.toLocaleString("ja-JP", {
+          dateStyle: "short",
+          timeStyle: "short",
+        })
+      : "—";
+  };
 
   return (
     <div className="min-h-screen bg-zinc-50 px-4 py-10">
@@ -289,6 +416,151 @@ export default async function ManagementPage() {
 
         {canManage ? (
           <>
+            <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-zinc-900">
+                メンバー招待
+              </h2>
+              <p className="mt-2 text-sm text-zinc-600">
+                発行したコードを共有すると、新しいメンバーが参加できます。
+              </p>
+              <div className="mt-4 grid gap-6 lg:grid-cols-2">
+                <form
+                  action={createInviteCodeAction}
+                  className="space-y-4 rounded-xl border border-dashed border-zinc-300 p-4"
+                >
+                  <label className="block text-sm text-zinc-600">
+                    付与する権限
+                    <select
+                      name="role"
+                      className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      defaultValue={ROLE_MEMBER}
+                    >
+                      {ROLE_OPTIONS.map((roleValue) => (
+                        <option key={roleValue} value={roleValue}>
+                          {roleValue}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-sm text-zinc-600">
+                    有効期限（日）
+                    <input
+                      type="number"
+                      name="expiresInDays"
+                      min={0}
+                      defaultValue={14}
+                      className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    />
+                    <span className="mt-1 block text-xs text-zinc-500">
+                      0 を入力すると期限なしになります。
+                    </span>
+                  </label>
+                  <button
+                    type="submit"
+                    className="w-full rounded-lg bg-sky-600 py-2 text-sm font-semibold text-white transition hover:bg-sky-700"
+                  >
+                    招待コードを発行
+                  </button>
+                </form>
+                <div>
+                  <p className="text-sm text-zinc-500">発行済みコード</p>
+                  {inviteCodes.length === 0 ? (
+                    <p className="mt-3 rounded-lg border border-dashed border-zinc-300 p-4 text-sm text-zinc-500">
+                      まだ招待コードがありません。
+                    </p>
+                  ) : (
+                    <ul className="mt-3 divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-zinc-50">
+                      {inviteCodes.map((invite) => (
+                        <li key={invite.id} className="p-3 text-sm">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="font-mono text-base font-semibold text-zinc-900">
+                              {invite.code}
+                            </p>
+                            <span className="text-xs uppercase tracking-wide text-zinc-500">
+                              {invite.role}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-zinc-500">
+                            {invite.usedAt
+                              ? `使用済み: ${formatDateTime(invite.usedAt)}`
+                              : `未使用${
+                                  invite.expiresAt
+                                    ? ` / 期限: ${formatDateTime(
+                                        invite.expiresAt
+                                      )}`
+                                    : ""
+                                }`}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </section>
+            <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-zinc-900">
+                メンバーと権限
+              </h2>
+              <p className="mt-2 text-sm text-zinc-600">
+                役割を変更すると、該当メンバーの機能アクセス権が更新されます。
+              </p>
+              <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
+                    <tr>
+                      <th className="px-4 py-2 text-left">メンバー</th>
+                      <th className="px-4 py-2 text-left">メール</th>
+                      <th className="px-4 py-2 text-left">権限</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {membersList.map((memberInfo) => (
+                      <tr
+                        key={memberInfo.id}
+                        className="border-t border-zinc-100 text-zinc-800"
+                      >
+                        <td className="px-4 py-3 font-semibold">
+                          {memberInfo.displayName}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-zinc-600">
+                          {memberInfo.email ?? "メール未登録"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <form
+                            action={updateMemberRoleAction}
+                            className="flex flex-wrap items-center gap-2"
+                          >
+                            <input
+                              type="hidden"
+                              name="memberId"
+                              value={memberInfo.id}
+                            />
+                            <select
+                              name="role"
+                              defaultValue={memberInfo.role}
+                              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                            >
+                              {ROLE_OPTIONS.map((roleValue) => (
+                                <option key={roleValue} value={roleValue}>
+                                  {roleValue}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="submit"
+                              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition hover:border-sky-500 hover:text-sky-600"
+                            >
+                              更新
+                            </button>
+                          </form>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
             <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-zinc-900">
                 会計年度と承認フロー
