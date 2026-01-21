@@ -73,8 +73,8 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
   const currentYear = new Date().getFullYear();
 
   return (
-    <div className="min-h-screen bg-zinc-50 px-6 py-10">
-      <div className="mx-auto max-w-6xl space-y-8">
+    <div className="min-h-screen bg-zinc-50 py-10">
+      <div className="page-shell space-y-8">
         <section className="rounded-2xl border border-sky-200 bg-sky-50 p-6 text-sm text-sky-900 shadow-sm">
           Knot Document は団体の“確定版（最終版）”を保存する場所です。編集途中のファイルではなく、確定した文書を保存してください。
         </section>

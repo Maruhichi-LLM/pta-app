@@ -73,8 +73,8 @@ export default async function EventsPage({
   const initialStartsAt = buildInitialStartsAt(searchParams?.date);
 
   return (
-    <div className="min-h-screen bg-zinc-50 px-4 py-10">
-      <div className="mx-auto flex max-w-5xl flex-col gap-8">
+    <div className="min-h-screen bg-zinc-50 py-10">
+      <div className="page-shell flex flex-col gap-8">
         <header className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
           <p className="text-sm uppercase tracking-wide text-zinc-500">
             Knot Event

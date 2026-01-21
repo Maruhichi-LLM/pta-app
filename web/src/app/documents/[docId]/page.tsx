@@ -52,8 +52,8 @@ export default async function DocumentDetailPage({ params }: DocumentDetailProps
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 px-6 py-10">
-      <div className="mx-auto max-w-4xl space-y-8">
+    <div className="min-h-screen bg-zinc-50 py-10">
+      <div className="page-shell space-y-8">
         <div className="flex flex-col gap-2">
           <Link
             href="/documents"

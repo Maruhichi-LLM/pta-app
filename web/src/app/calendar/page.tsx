@@ -186,8 +186,8 @@ export default async function CalendarPage({
     : null;
 
   return (
-    <div className="min-h-screen bg-zinc-50 px-4 py-10">
-      <div className="mx-auto flex max-w-5xl flex-col gap-8">
+    <div className="min-h-screen bg-zinc-50 py-10">
+      <div className="page-shell flex flex-col gap-8">
         <header className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>

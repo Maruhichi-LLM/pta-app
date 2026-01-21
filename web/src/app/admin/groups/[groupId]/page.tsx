@@ -82,11 +82,12 @@ export default async function GroupDetailPage({
   const saved = searchParams?.saved === "1";
 
   return (
-    <div className="min-h-screen bg-white px-8 py-10">
-      <div className="mb-8 space-y-2">
-        <p className="text-xs uppercase tracking-wide text-zinc-500">
-          Knot Admin / Groups
-        </p>
+    <div className="min-h-screen bg-white py-10">
+      <div className="page-shell">
+        <div className="mb-8 space-y-2">
+          <p className="text-xs uppercase tracking-wide text-zinc-500">
+            Knot Admin / Groups
+          </p>
         <h1 className="text-3xl font-semibold text-zinc-900">
           {group.name}
         </h1>
@@ -95,71 +96,72 @@ export default async function GroupDetailPage({
           {group._count.members} members /{" "}
           {group.createdAt.toLocaleDateString("ja-JP")}
         </p>
-        {saved ? (
-          <p className="rounded-full bg-emerald-50 px-4 py-2 text-sm text-emerald-700">
-            保存しました。
-          </p>
-        ) : null}
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <form
-          action={updateGroupAction}
-          className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
-        >
-          <input type="hidden" name="groupId" value={group.id} />
-          <h2 className="text-lg font-semibold text-zinc-900">
-            基本情報とモジュール
-          </h2>
-          <label className="mt-4 block text-sm text-zinc-600">
-            団体名
-            <input
-              name="name"
-              defaultValue={group.name}
-              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-            />
-          </label>
-          <div className="mt-6">
-            <p className="text-sm font-semibold text-zinc-700">
-              enabledModules
+          {saved ? (
+            <p className="rounded-full bg-emerald-50 px-4 py-2 text-sm text-emerald-700">
+              保存しました。
             </p>
-            <div className="mt-3 grid gap-3">
-              {MODULE_LINKS.map((module) => (
-                <label
-                  key={module.key}
-                  className="flex items-center gap-3 rounded-xl border border-zinc-200 px-4 py-2"
-                >
-                  <input
-                    type="checkbox"
-                    name="enabledModules"
-                    value={module.key}
-                    defaultChecked={moduleState[module.key]}
-                    className="h-4 w-4 accent-sky-600"
-                  />
-                  <div>
-                    <p className="text-sm font-semibold text-zinc-900">
-                      {module.label}
-                    </p>
-                    <p className="text-xs text-zinc-500">
-                      {module.href}
-                    </p>
-                  </div>
-                </label>
-              ))}
+          ) : null}
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <form
+            action={updateGroupAction}
+            className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
+          >
+            <input type="hidden" name="groupId" value={group.id} />
+            <h2 className="text-lg font-semibold text-zinc-900">
+              基本情報とモジュール
+            </h2>
+            <label className="mt-4 block text-sm text-zinc-600">
+              団体名
+              <input
+                name="name"
+                defaultValue={group.name}
+                className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              />
+            </label>
+            <div className="mt-6">
+              <p className="text-sm font-semibold text-zinc-700">
+                enabledModules
+              </p>
+              <div className="mt-3 grid gap-3">
+                {MODULE_LINKS.map((module) => (
+                  <label
+                    key={module.key}
+                    className="flex items-center gap-3 rounded-xl border border-zinc-200 px-4 py-2"
+                  >
+                    <input
+                      type="checkbox"
+                      name="enabledModules"
+                      value={module.key}
+                      defaultChecked={moduleState[module.key]}
+                      className="h-4 w-4 accent-sky-600"
+                    />
+                    <div>
+                      <p className="text-sm font-semibold text-zinc-900">
+                        {module.label}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        {module.href}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
             </div>
+            <div className="mt-6 flex justify-end">
+              <ConfirmModuleSubmitButton
+                originalModules={moduleState}
+                criticalKeys={["accounting", "management"]}
+                label="変更を保存"
+              />
+            </div>
+          </form>
+          <div className="rounded-2xl border border-dashed border-zinc-200 bg-white/70 p-6 text-sm text-zinc-600">
+            <p>
+              Accounting と Management の ON/OFF は利用団体に大きな影響を与えます。変更するときは団体側と合意のうえ実行してください。
+            </p>
           </div>
-          <div className="mt-6 flex justify-end">
-            <ConfirmModuleSubmitButton
-              originalModules={moduleState}
-              criticalKeys={["accounting", "management"]}
-              label="変更を保存"
-            />
-          </div>
-        </form>
-        <div className="rounded-2xl border border-dashed border-zinc-200 bg-white/70 p-6 text-sm text-zinc-600">
-          <p>
-            Accounting と Management の ON/OFF は利用団体に大きな影響を与えます。変更するときは団体側と合意のうえ実行してください。
-          </p>
         </div>
       </div>
     </div>

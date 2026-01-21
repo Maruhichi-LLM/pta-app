@@ -41,117 +41,114 @@ export default async function RootPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white px-6 py-16 text-center">
-      <div className="mx-auto max-w-3xl space-y-4">
-        {COPY.map((line) => (
-          <p key={line} className="text-2xl font-semibold text-zinc-900">
-            {line}
-          </p>
-        ))}
-        {!session ? (
-          <div className="space-x-3">
-            <Link
-              href="/join"
-              className="inline-flex rounded-full bg-zinc-900 px-6 py-2 text-sm font-semibold text-white transition hover:bg-zinc-700"
-            >
-              Knot を始める
-            </Link>
-            <Link
-              href="/join"
-              className="inline-flex rounded-full border border-zinc-200 px-6 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
-            >
-              招待コードで参加
-            </Link>
-          </div>
-        ) : null}
-      </div>
-
-      <section className="mx-auto mt-16 max-w-5xl text-left">
-        <div className="mb-6 text-center">
-          <p className="text-sm uppercase tracking-wide text-zinc-500">
-            Knot Modules
-          </p>
-          <h2 className="mt-1 text-3xl font-semibold text-zinc-900">
-            必要なモジュールだけを結ぶ
-          </h2>
-        </div>
-        <div className="grid gap-6 md:grid-cols-2">
-          {MODULE_LINKS.map((module) => {
-            const isEnabled = enabled.includes(module.key);
-            const targetHref = session
-              ? module.href
-              : module.key === "management"
-              ? "/join"
-              : "/join";
-            return (
-              <div
-                key={module.key}
-                className="flex h-full flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
-              >
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-sky-600">
-                    {module.label}
-                    <span className="ml-2 text-[0.65rem] text-zinc-400">
-                      {isEnabled
-                        ? "MODULE ENABLED"
-                        : session
-                        ? "MODULE DISABLED"
-                        : "PREVIEW"}
-                    </span>
-                  </p>
-                  <h3 className="mt-2 text-2xl font-semibold text-zinc-900">
-                    {module.label}
-                  </h3>
-                  <p className="mt-3 text-sm text-zinc-600">
-                    {MODULE_DESCRIPTIONS[module.key]}
-                  </p>
-                </div>
-                <div className="mt-6">
-                  <Link
-                    href={targetHref}
-                    className={`inline-flex rounded-full px-4 py-2 text-sm font-semibold ${
-                      isEnabled && session
-                        ? "bg-sky-600 text-white hover:bg-sky-700"
-                        : "bg-zinc-100 text-zinc-500"
-                    }`}
-                  >
-                    {isEnabled && session ? "開く" : session ? "無効化中" : "Knot へ参加"}
-                  </Link>
-                </div>
-              </div>
-            );
-          })}
-          <div className="flex h-full flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-sky-600">
-                {DOCUMENT_CARD.label}
-                <span className="ml-2 text-[0.65rem] text-zinc-400">
-                  ALWAYS AVAILABLE
-                </span>
-              </p>
-              <h3 className="mt-2 text-2xl font-semibold text-zinc-900">
-                {DOCUMENT_CARD.label}
-              </h3>
-              <p className="mt-3 text-sm text-zinc-600">
-                {DOCUMENT_CARD.description}
-              </p>
-            </div>
-            <div className="mt-6">
+    <div className="min-h-screen bg-white py-16">
+      <div className="page-shell space-y-16 text-center">
+        <div className="mx-auto max-w-4xl space-y-4">
+          {COPY.map((line) => (
+            <p key={line} className="text-2xl font-semibold text-zinc-900">
+              {line}
+            </p>
+          ))}
+          {!session ? (
+            <div className="space-x-3">
               <Link
-                href={session ? DOCUMENT_CARD.href : "/join"}
-                className={`inline-flex rounded-full px-4 py-2 text-sm font-semibold ${
-                  session
-                    ? "bg-sky-600 text-white hover:bg-sky-700"
-                    : "bg-zinc-100 text-zinc-500"
-                }`}
+                href="/join"
+                className="inline-flex rounded-full bg-zinc-900 px-6 py-2 text-sm font-semibold text-white transition hover:bg-zinc-700"
               >
-                {session ? "開く" : "Knot へ参加"}
+                Knot を始める
+              </Link>
+              <Link
+                href="/join"
+                className="inline-flex rounded-full border border-zinc-200 px-6 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
+              >
+                招待コードで参加
               </Link>
             </div>
-          </div>
+          ) : null}
         </div>
-      </section>
 
+        <section className="text-left">
+          <div className="mb-6 text-center">
+            <p className="text-sm uppercase tracking-wide text-zinc-500">
+              Knot Modules
+            </p>
+            <h2 className="mt-1 text-3xl font-semibold text-zinc-900">
+              必要なモジュールだけを結ぶ
+            </h2>
+          </div>
+          <div className="mx-auto flex max-w-5xl flex-nowrap gap-5 overflow-x-auto pb-3">
+            {MODULE_LINKS.map((module) => {
+              const isEnabled = enabled.includes(module.key);
+              const targetHref = session ? module.href : "/join";
+              return (
+                <div
+                  key={module.key}
+                  className="min-w-[300px] flex-1 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm flex h-full flex-col justify-between"
+                >
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-sky-600">
+                      {module.label}
+                      <span className="ml-2 text-[0.65rem] text-zinc-400">
+                        {isEnabled
+                          ? "MODULE ENABLED"
+                          : session
+                          ? "MODULE DISABLED"
+                          : "PREVIEW"}
+                      </span>
+                    </p>
+                    <h3 className="mt-2 text-xl font-semibold text-zinc-900">
+                      {module.label}
+                    </h3>
+                    <p className="mt-3 text-sm text-zinc-600">
+                      {MODULE_DESCRIPTIONS[module.key]}
+                    </p>
+                  </div>
+                  <div className="mt-6">
+                    <Link
+                      href={targetHref}
+                      className={`inline-flex rounded-full px-4 py-2 text-sm font-semibold ${
+                        isEnabled && session
+                          ? "bg-sky-600 text-white hover:bg-sky-700"
+                          : "bg-zinc-100 text-zinc-500"
+                      }`}
+                    >
+                      {isEnabled && session ? "開く" : session ? "無効化中" : "Knot へ参加"}
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="min-w-[300px] flex-1 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm flex h-full flex-col justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-sky-600">
+                  {DOCUMENT_CARD.label}
+                  <span className="ml-2 text-[0.65rem] text-zinc-400">
+                    ALWAYS AVAILABLE
+                  </span>
+                </p>
+                <h3 className="mt-2 text-xl font-semibold text-zinc-900">
+                  {DOCUMENT_CARD.label}
+                </h3>
+                <p className="mt-3 text-sm text-zinc-600">
+                  {DOCUMENT_CARD.description}
+                </p>
+              </div>
+              <div className="mt-6">
+                <Link
+                  href={session ? DOCUMENT_CARD.href : "/join"}
+                  className={`inline-flex rounded-full px-4 py-2 text-sm font-semibold ${
+                    session
+                      ? "bg-sky-600 text-white hover:bg-sky-700"
+                      : "bg-zinc-100 text-zinc-500"
+                  }`}
+                >
+                  {session ? "開く" : "Knot へ参加"}
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

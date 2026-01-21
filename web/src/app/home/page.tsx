@@ -150,8 +150,8 @@ export default async function HomePage() {
   const canManageEvents = member.role === ROLE_ADMIN;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white px-4 py-8 sm:px-6 lg:px-10">
-      <div className="mx-auto flex max-w-5xl flex-col gap-8">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white py-8">
+      <div className="page-shell flex flex-col gap-8">
         <header className="rounded-3xl bg-gradient-to-r from-sky-600 to-cyan-500 p-6 text-white shadow-lg">
           <div className="flex flex-wrap items-center justify-between gap-6">
             <div>

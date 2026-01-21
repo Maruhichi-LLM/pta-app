@@ -24,3 +24,14 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@layer components {
+  .page-shell {
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+    max-width: 1440px;
+    padding-left: clamp(16px, 4vw, 64px);
+    padding-right: clamp(16px, 4vw, 64px);
+  }
+}
