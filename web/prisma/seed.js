@@ -24,7 +24,7 @@ async function main() {
     data: {
       name: 'Demo Group',
       fiscalYearStartMonth: 4,
-      enabledModules: ['event', 'calendar', 'accounting'],
+      enabledModules: ['event', 'calendar', 'accounting', 'management', 'chat', 'todo', 'store'],
     },
   });
 

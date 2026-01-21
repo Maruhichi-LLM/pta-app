@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { MODULE_LINKS, filterEnabledModules } from "@/lib/modules";
+import {
+  MODULE_LINKS,
+  filterEnabledModules,
+  ModuleKey,
+  resolveModules,
+} from "@/lib/modules";
 import { getSessionFromCookies } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { LogoutButton } from "@/components/logout-button";
@@ -29,20 +34,25 @@ export default async function RootLayout({
 }>) {
   const session = await getSessionFromCookies();
   let enabledModules = MODULE_LINKS;
+  let enabledSet = new Set<ModuleKey>(enabledModules.map((mod) => mod.key));
   if (session) {
     const group = await prisma.group.findUnique({
       where: { id: session.groupId },
       select: { enabledModules: true },
     });
-    enabledModules = filterEnabledModules(group?.enabledModules);
+    const resolved = resolveModules(group?.enabledModules);
+    enabledSet = new Set(resolved);
+    enabledModules = filterEnabledModules(resolved);
   }
+  const moduleStates = MODULE_LINKS.map((module) => ({
+    ...module,
+    enabled: enabledSet.has(module.key as ModuleKey),
+  }));
   const primaryKeys: ModuleKey[] = ["event", "calendar", "accounting"];
-  const primaryModules = primaryKeys
-    .map((key) => enabledModules.find((module) => module.key === key))
-    .filter(
-      (module): module is (typeof enabledModules)[number] => Boolean(module)
-    );
-  const remainingModules = enabledModules.filter(
+  const primaryModules = moduleStates.filter((module) =>
+    primaryKeys.includes(module.key as ModuleKey)
+  );
+  const remainingModules = moduleStates.filter(
     (module) => !primaryKeys.includes(module.key as ModuleKey)
   );
 
@@ -59,30 +69,52 @@ export default async function RootLayout({
                 Knot
               </Link>
               <nav className="flex flex-wrap items-center gap-4 text-sm font-medium text-zinc-600">
-                {primaryModules.map((module) => (
-                  <Link
-                    key={module.key}
-                    href={module.href}
-                    className="rounded-full px-3 py-1 transition hover:bg-zinc-100"
-                  >
-                    {module.label}
-                  </Link>
-                ))}
+                {primaryModules.map((module) =>
+                  module.enabled ? (
+                    <Link
+                      key={module.key}
+                      href={module.href}
+                      className="rounded-full px-3 py-1 transition hover:bg-zinc-100"
+                    >
+                      {module.label}
+                    </Link>
+                  ) : (
+                    <span
+                      key={module.key}
+                      className="rounded-full px-3 py-1 text-zinc-400"
+                      aria-disabled="true"
+                      title="無効化中のモジュールです"
+                    >
+                      {module.label}
+                    </span>
+                  )
+                )}
                 <Link
                   href="/documents"
                   className="rounded-full px-3 py-1 transition hover:bg-zinc-100"
                 >
                   Knot Document
                 </Link>
-                {remainingModules.map((module) => (
-                  <Link
-                    key={module.key}
-                    href={module.href}
-                    className="rounded-full px-3 py-1 transition hover:bg-zinc-100"
-                  >
-                    {module.label}
-                  </Link>
-                ))}
+                {remainingModules.map((module) =>
+                  module.enabled ? (
+                    <Link
+                      key={module.key}
+                      href={module.href}
+                      className="rounded-full px-3 py-1 transition hover:bg-zinc-100"
+                    >
+                      {module.label}
+                    </Link>
+                  ) : (
+                    <span
+                      key={module.key}
+                      className="rounded-full px-3 py-1 text-zinc-400"
+                      aria-disabled="true"
+                      title="無効化中のモジュールです"
+                    >
+                      {module.label}
+                    </span>
+                  )
+                )}
               </nav>
               {session ? (
                 <LogoutButton />
