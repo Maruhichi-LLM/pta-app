@@ -34,4 +34,12 @@ body {
     padding-left: clamp(16px, 4vw, 64px);
     padding-right: clamp(16px, 4vw, 64px);
   }
+
+  .edge-shell {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    padding-left: clamp(16px, 4vw, 64px);
+    padding-right: clamp(16px, 4vw, 64px);
+  }
 }

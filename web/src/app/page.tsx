@@ -67,8 +67,8 @@ export default async function RootPage() {
           ) : null}
         </div>
 
-        <section className="text-left">
-          <div className="mb-6 text-center">
+        <section className="edge-shell text-left">
+          <div className="mx-auto mb-6 max-w-4xl text-center">
             <p className="text-sm uppercase tracking-wide text-zinc-500">
               Knot Modules
             </p>
@@ -76,14 +76,14 @@ export default async function RootPage() {
               必要なモジュールだけを結ぶ
             </h2>
           </div>
-          <div className="mx-auto flex max-w-5xl flex-nowrap gap-5 overflow-x-auto pb-3">
+          <div className="flex w-full gap-5 overflow-x-auto pb-3">
             {MODULE_LINKS.map((module) => {
               const isEnabled = enabled.includes(module.key);
               const targetHref = session ? module.href : "/join";
               return (
                 <div
                   key={module.key}
-                  className="min-w-[300px] flex-1 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm flex h-full flex-col justify-between"
+                  className="min-w-[300px] flex-1 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm flex h-full min-h-[260px] flex-col justify-between"
                 >
                   <div>
                     <p className="text-xs uppercase tracking-wide text-sky-600">
@@ -118,7 +118,7 @@ export default async function RootPage() {
                 </div>
               );
             })}
-            <div className="min-w-[300px] flex-1 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm flex h-full flex-col justify-between">
+            <div className="min-w-[300px] flex-1 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm flex h-full min-h-[260px] flex-col justify-between">
               <div>
                 <p className="text-xs uppercase tracking-wide text-sky-600">
                   {DOCUMENT_CARD.label}
