@@ -67,7 +67,7 @@ export default async function LedgerPage() {
   const isAccountingEnabled = setting.accountingEnabled !== false;
 
   return (
-    <div className="min-h-screen bg-zinc-50 py-10">
+    <div className="min-h-screen py-10">
       <div className="page-shell flex flex-col gap-8">
         <header className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
           <p className="text-sm uppercase tracking-wide text-zinc-500">
@@ -98,7 +98,9 @@ export default async function LedgerPage() {
         ) : null}
         {isAccountingEnabled ? (
           <>
-            <LedgerCreateForm />
+            <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+              <LedgerCreateForm />
+            </section>
             <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-zinc-900">会計一覧</h2>
               <div className="mt-4">
