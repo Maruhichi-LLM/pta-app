@@ -82,7 +82,7 @@ export default async function GroupDetailPage({
   const saved = searchParams?.saved === "1";
 
   return (
-    <div className="min-h-screen bg-white py-10">
+    <div className="min-h-screen bg-transparent py-10">
       <div className="page-shell">
         <div className="mb-8 space-y-2">
           <p className="text-xs uppercase tracking-wide text-zinc-500">

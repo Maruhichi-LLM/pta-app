@@ -53,7 +53,7 @@ export default async function AdminGroupsPage() {
   })) as GroupCard[];
 
   return (
-    <div className="min-h-screen bg-white py-10">
+    <div className="min-h-screen bg-transparent py-10">
       <div className="page-shell">
         <div className="mb-8 flex items-center justify-between">
           <div>

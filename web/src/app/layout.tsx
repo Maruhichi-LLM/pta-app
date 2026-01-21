@@ -49,8 +49,9 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} bg-white text-zinc-900 antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} text-zinc-900 antialiased`}
       >
+        <div className="bg-honeycomb" aria-hidden="true" />
         <div className="min-h-screen">
           <header className="border-b border-zinc-200 bg-white">
             <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">

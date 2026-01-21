@@ -41,7 +41,7 @@ export default async function RootPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white py-16">
+    <div className="min-h-screen bg-transparent py-16">
       <div className="page-shell space-y-16 text-center">
         <div className="mx-auto max-w-4xl space-y-4">
           {COPY.map((line) => (

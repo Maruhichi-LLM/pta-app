@@ -19,10 +19,23 @@
   }
 }
 
+html,
 body {
-  background: var(--background);
+  height: 100%;
+}
+
+body {
+  background-color: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.bg-honeycomb {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: url("/images/honeycomb.png") center / cover no-repeat;
+  background-color: #ffffff;
 }
 
 @layer components {
