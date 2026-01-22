@@ -64,11 +64,11 @@ export default async function RootLayout({
         <div className="bg-honeycomb" aria-hidden="true" />
         <div className="min-h-screen">
           <header className="border-b border-zinc-200 bg-white">
-            <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+            <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4">
               <Link href="/" className="text-lg font-semibold tracking-wide">
                 Knot
               </Link>
-              <nav className="flex flex-wrap items-center gap-4 text-sm font-medium text-zinc-600">
+              <nav className="flex flex-shrink overflow-x-auto whitespace-nowrap gap-4 text-sm font-medium text-zinc-600">
                 {primaryModules.map((module) =>
                   module.enabled ? (
                     <Link
