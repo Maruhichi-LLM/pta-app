@@ -30,11 +30,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+async function fetchLayoutContext() {
   const session = await getSessionFromCookies();
   let enabledModules = MODULE_LINKS;
   let enabledSet = new Set<ModuleKey>(enabledModules.map((mod) => mod.key));
@@ -71,6 +67,15 @@ export default async function RootLayout({
         Boolean(item)
     );
 
+  return { session, navItems };
+}
+
+export default async function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  const { session, navItems } = await fetchLayoutContext();
   return (
     <html lang="en">
       <body
@@ -105,7 +110,7 @@ export default async function RootLayout({
                   )
                 )}
               </nav>
-              {session ? (
+             {session ? (
                 <LogoutButton />
               ) : (
                 <Link
