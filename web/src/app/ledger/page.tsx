@@ -7,24 +7,144 @@ import { LedgerCreateForm } from "@/components/ledger-create-form";
 import { ROLE_ADMIN } from "@/lib/roles";
 import { ensureModuleEnabled } from "@/lib/modules";
 import { KNOT_CALENDAR_PATH } from "@/lib/routes";
+import { revalidatePath } from "next/cache";
+
+const MONTH_VALUES = Array.from({ length: 12 }, (_, index) => index + 1);
+
+const ACCOUNT_TYPE_LABELS: Record<string, string> = {
+  ASSET: "資産",
+  LIABILITY: "負債",
+  INCOME: "収入",
+  EXPENSE: "支出",
+};
+
+async function requireAdminSession() {
+  const session = await getSessionFromCookies();
+  if (!session) {
+    redirect("/join");
+  }
+  const member = await prisma.member.findUnique({
+    where: { id: session.memberId },
+  });
+  if (!member || member.role !== ROLE_ADMIN) {
+    throw new Error("権限がありません。");
+  }
+  return { session, member };
+}
+
+async function saveAccountingSettingsAction(formData: FormData) {
+  "use server";
+  const { session } = await requireAdminSession();
+  const startMonth = Number(formData.get("startMonth"));
+  const endMonth = Number(formData.get("endMonth"));
+  const approvalFlow =
+    (formData.get("approvalFlow") as string | null)?.trim() || null;
+  const carryover = Number(formData.get("carryoverAmount") ?? 0);
+  const budgetEnabledInput =
+    (formData.get("budgetEnabled") as string | null) ?? "yes";
+  const budgetEnabled = budgetEnabledInput === "yes";
+  const accountingEnabledInput =
+    (formData.get("accountingEnabled") as string | null) ?? "yes";
+  const accountingEnabled = accountingEnabledInput === "yes";
+
+  if (
+    !Number.isInteger(startMonth) ||
+    !Number.isInteger(endMonth) ||
+    !MONTH_VALUES.includes(startMonth) ||
+    !MONTH_VALUES.includes(endMonth)
+  ) {
+    throw new Error("月は1〜12の範囲で設定してください。");
+  }
+
+  const carryoverAmount = Number.isFinite(carryover)
+    ? Math.round(carryover)
+    : 0;
+
+  await prisma.$transaction([
+    prisma.group.update({
+      where: { id: session.groupId },
+      data: { fiscalYearStartMonth: startMonth },
+    }),
+    prisma.accountingSetting.upsert({
+      where: { groupId: session.groupId },
+      update: {
+        fiscalYearStartMonth: startMonth,
+        fiscalYearEndMonth: endMonth,
+        approvalFlow,
+        carryoverAmount,
+        budgetEnabled,
+        accountingEnabled,
+      },
+      create: {
+        groupId: session.groupId,
+        fiscalYearStartMonth: startMonth,
+        fiscalYearEndMonth: endMonth,
+        approvalFlow,
+        carryoverAmount,
+        budgetEnabled,
+        accountingEnabled,
+      },
+    }),
+  ]);
+
+  revalidatePath("/ledger");
+  revalidatePath("/management");
+}
+
+async function createAccountAction(formData: FormData) {
+  "use server";
+  const { session } = await requireAdminSession();
+  const name = (formData.get("name") as string | null)?.trim();
+  const type = formData.get("type") as string | null;
+
+  if (!name) {
+    throw new Error("科目名を入力してください。");
+  }
+
+  if (!type || !(type in ACCOUNT_TYPE_LABELS)) {
+    throw new Error("科目区分を選択してください。");
+  }
+
+  const order = (await prisma.account.count({
+    where: { groupId: session.groupId },
+  })) as number;
+
+  await prisma.account.create({
+    data: {
+      groupId: session.groupId,
+      name,
+      type,
+      isCustom: true,
+      order,
+    },
+  });
+
+  revalidatePath("/ledger");
+  revalidatePath("/management");
+}
 
 async function fetchLedgerData(groupId: number, memberId: number) {
-  const [group, ledgers, member, accountingSetting] = await Promise.all([
-    prisma.group.findUnique({ where: { id: groupId } }),
-    prisma.ledger.findMany({
-      where: { groupId },
-      include: {
-        createdBy: true,
-        approvals: {
-          orderBy: { createdAt: "desc" },
-          include: { actedBy: true },
+  const [group, ledgers, member, accountingSetting, accounts] =
+    await Promise.all([
+      prisma.group.findUnique({ where: { id: groupId } }),
+      prisma.ledger.findMany({
+        where: { groupId },
+        include: {
+          createdBy: true,
+          approvals: {
+            orderBy: { createdAt: "desc" },
+            include: { actedBy: true },
+          },
         },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.member.findUnique({ where: { id: memberId } }),
-    prisma.accountingSetting.findUnique({ where: { groupId } }),
-  ]);
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.member.findUnique({ where: { id: memberId } }),
+      prisma.accountingSetting.findUnique({ where: { groupId } }),
+      prisma.account.findMany({
+        where: { groupId },
+        orderBy: { order: "asc" },
+      }),
+    ]);
   return {
     group,
     ledgers: ledgers.map((ledger) => ({
@@ -37,6 +157,7 @@ async function fetchLedgerData(groupId: number, memberId: number) {
     })),
     member,
     accountingSetting,
+    accounts,
   };
 }
 
@@ -65,6 +186,10 @@ export default async function LedgerPage() {
   };
 
   const isAccountingEnabled = setting.accountingEnabled !== false;
+  const defaultAccounts =
+    data.accounts?.filter((account) => !account.isCustom) ?? [];
+  const customAccounts =
+    data.accounts?.filter((account) => account.isCustom) ?? [];
 
   return (
     <div className="min-h-screen py-10">
@@ -88,14 +213,213 @@ export default async function LedgerPage() {
         </header>
 
         {canManage ? (
-          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white/80 p-4 text-sm text-zinc-700">
-            会計年度や勘定科目の設定は{" "}
-            <Link href="/management" className="font-semibold text-sky-700">
-              Knot Management
-            </Link>
-            で管理できます。
-          </div>
-        ) : null}
+          <>
+            <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-zinc-900">
+                会計年度と承認フロー
+              </h2>
+              <p className="mt-2 text-sm text-zinc-600">
+                会計期間、承認ステップ、前期繰越金、予算機能をまとめて設定します。
+              </p>
+              <form
+                action={saveAccountingSettingsAction}
+                className="mt-4 space-y-4"
+              >
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <label className="text-sm text-zinc-600">
+                    期首
+                    <select
+                      name="startMonth"
+                      defaultValue={setting.fiscalYearStartMonth}
+                      className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    >
+                      {MONTH_VALUES.map((month) => (
+                        <option key={month} value={month}>
+                          {month}月
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm text-zinc-600">
+                    期末
+                    <select
+                      name="endMonth"
+                      defaultValue={setting.fiscalYearEndMonth}
+                      className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    >
+                      {MONTH_VALUES.map((month) => (
+                        <option key={month} value={month}>
+                          {month}月
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm text-zinc-600">
+                    前期繰越金（円）
+                    <input
+                      type="number"
+                      name="carryoverAmount"
+                      defaultValue={setting.carryoverAmount}
+                      className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    />
+                  </label>
+                </div>
+                <div className="text-sm text-zinc-600">
+                  <p>会計機能を利用しますか？</p>
+                  <div className="mt-2 flex gap-4">
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="accountingEnabled"
+                        value="yes"
+                        defaultChecked={isAccountingEnabled}
+                      />
+                      <span>はい（会計機能を使う）</span>
+                    </label>
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="accountingEnabled"
+                        value="no"
+                        defaultChecked={!isAccountingEnabled}
+                      />
+                      <span>いいえ（会計機能を使わない）</span>
+                    </label>
+                  </div>
+                </div>
+                <div className="text-sm text-zinc-600">
+                  <p>予算管理を利用しますか？</p>
+                  <div className="mt-2 flex gap-4">
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="budgetEnabled"
+                        value="yes"
+                        defaultChecked={setting.budgetEnabled !== false}
+                      />
+                      <span>はい（予算機能を使う）</span>
+                    </label>
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="budgetEnabled"
+                        value="no"
+                        defaultChecked={setting.budgetEnabled === false}
+                      />
+                      <span>いいえ（予算機能を使わない）</span>
+                    </label>
+                  </div>
+                </div>
+                <label className="block text-sm text-zinc-600">
+                  承認フローのメモ
+                  <textarea
+                    name="approvalFlow"
+                    defaultValue={setting.approvalFlow ?? ""}
+                    rows={3}
+                    className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  />
+                </label>
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-700"
+                  >
+                    設定を保存
+                  </button>
+                </div>
+              </form>
+            </section>
+            <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-zinc-900">
+                勘定科目マスタ
+              </h2>
+              <div className="mt-4 grid gap-6 lg:grid-cols-2">
+                <div>
+                  <p className="text-sm text-zinc-500">基本科目</p>
+                  <ul className="mt-2 space-y-2">
+                    {defaultAccounts.map((account) => (
+                      <li
+                        key={account.id}
+                        className="rounded-lg border border-zinc-200 p-3 text-sm"
+                      >
+                        <p className="font-semibold text-zinc-800">
+                          {account.name}
+                        </p>
+                        <p className="text-xs text-zinc-500">
+                          {ACCOUNT_TYPE_LABELS[account.type] ?? account.type}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-500">自由科目の追加</p>
+                  <form
+                    action={createAccountAction}
+                    className="mt-2 space-y-3 rounded-xl border border-dashed border-zinc-300 p-4"
+                  >
+                    <label className="block text-sm text-zinc-600">
+                      科目名
+                      <input
+                        name="name"
+                        className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                        placeholder="例: イベント備品費"
+                        required
+                      />
+                    </label>
+                    <label className="block text-sm text-zinc-600">
+                      区分
+                      <select
+                        name="type"
+                        className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                        required
+                        defaultValue="EXPENSE"
+                      >
+                        {Object.entries(ACCOUNT_TYPE_LABELS).map(
+                          ([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </label>
+                    <button
+                      type="submit"
+                      className="w-full rounded-lg bg-sky-600 py-2 text-sm font-semibold text-white transition hover:bg-sky-700"
+                    >
+                      追加する
+                    </button>
+                  </form>
+                  {customAccounts.length > 0 ? (
+                    <div className="mt-4">
+                      <p className="text-sm text-zinc-500">追加済み科目</p>
+                      <ul className="mt-2 space-y-2">
+                        {customAccounts.map((account) => (
+                          <li
+                            key={account.id}
+                            className="rounded-lg border border-zinc-200 p-3 text-sm"
+                          >
+                            <p className="font-semibold text-zinc-800">
+                              {account.name}
+                            </p>
+                            <p className="text-xs text-zinc-500">
+                              {ACCOUNT_TYPE_LABELS[account.type] ?? account.type}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </section>
+          </>
+        ) : (
+          <section className="rounded-2xl border border-dashed border-zinc-300 bg-white/80 p-4 text-sm text-zinc-700">
+            Knot Accounting の設定変更は管理者のみが利用できます。権限が必要な場合は団体の管理者に連絡してください。
+          </section>
+        )}
         {isAccountingEnabled ? (
           <>
             <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">

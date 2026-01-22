@@ -18,10 +18,10 @@ const MODULE_DESCRIPTIONS: Record<ModuleKey, string> = {
   event: "行事の登録とメンバーの出欠を一つに。",
   accounting: "経費精算と承認フローをシンプルに。",
   calendar: "行事を月間ビューで共有。",
-  management: "招待や機能ON/OFF、収支内訳書・予算設定を管理するシステムモジュール。",
+  management: "招待と権限、メンバー体制を管理するヒューマンモジュール。",
   chat: "発言そのものを次の行動へつなげる意思決定ハブ。チャットからToDo・会計・議事録へ直接変換します。",
   todo: "会話から生まれたタスクを簡潔に管理。誰が・いつまでに・何をやるかを素早く共有します。",
-  store: "団体向けモジュールの追加・有効化・無効化をまとめて管理。システム設定用のアプリストアです（管理者専用）。",
+  store: "団体向けモジュールの追加・有効化・無効化をまとめて管理するアプリストア（管理者専用）。",
 };
 
 const MODULE_BADGES: Partial<Record<ModuleKey, string>> = {
