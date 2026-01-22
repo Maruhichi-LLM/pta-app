@@ -80,8 +80,8 @@ export function ModuleStoreGrid({
           const metadataState = entry.state ?? "available";
           const statusLabel = entry.toggleable
             ? enabledKeys.includes(entry.key as ModuleKey)
-              ? "ON"
-              : "OFF"
+              ? "Enabled"
+              : "Disabled"
             : STATE_LABELS[metadataState];
           const isEnabled =
             !!entry.key && enabledKeys.includes(entry.key as ModuleKey);
@@ -95,7 +95,7 @@ export function ModuleStoreGrid({
           return (
             <div
               key={entry.title + (entry.key ?? "")}
-              className={`rounded-3xl border bg-white/80 p-6 shadow-sm backdrop-blur ${
+              className={`flex h-full flex-col justify-between rounded-3xl border bg-white/80 p-6 shadow-sm backdrop-blur ${
                 cardMuted ? "opacity-80" : ""
               }`}
             >
@@ -124,35 +124,43 @@ export function ModuleStoreGrid({
                   {statusLabel}
                 </span>
               </div>
-              <p className="mt-4 text-sm leading-relaxed text-zinc-600">
-                {entry.description}
-              </p>
-              {entry.note ? (
-                <p className="mt-3 text-xs text-amber-600">{entry.note}</p>
-              ) : null}
+              <div className="mt-4 flex-1 space-y-2 text-sm leading-relaxed text-zinc-600">
+                <p>{entry.description}</p>
+                {entry.note ? (
+                  <p className="text-xs text-amber-600">{entry.note}</p>
+                ) : null}
+              </div>
               {entry.toggleable && entry.key ? (
-                <div className="mt-6 space-y-2">
+                <div className="mt-6">
                   <button
                     type="button"
                     disabled={!isAdmin || isLoading}
                     onClick={() =>
                       handleToggle(entry.key!, !isEnabled)
                     }
-                    className={`w-full rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    className={`flex w-full items-center justify-between rounded-2xl border px-4 py-2 text-sm font-semibold transition ${
                       isEnabled
-                        ? "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-                        : "bg-sky-600 text-white hover:bg-sky-700"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "border-zinc-200 bg-white text-zinc-600"
                     } ${
                       !isAdmin || isLoading
                         ? "cursor-not-allowed opacity-60"
-                        : ""
+                        : "hover:border-sky-200 hover:bg-sky-50"
                     }`}
                   >
-                    {isLoading
-                      ? "更新中..."
-                      : isEnabled
-                      ? "無効化する"
-                      : "有効化する"}
+                    <span>{isLoading ? "更新中..." : "モジュール"}</span>
+                    <span
+                      aria-hidden="true"
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                        isEnabled ? "bg-sky-600" : "bg-zinc-300"
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
+                          isEnabled ? "translate-x-5" : "translate-x-1"
+                        }`}
+                      />
+                    </span>
                   </button>
                   {!isAdmin ? (
                     <p className="text-center text-xs text-zinc-500">

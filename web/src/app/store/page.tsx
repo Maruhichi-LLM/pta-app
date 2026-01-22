@@ -106,7 +106,7 @@ export default async function StorePage() {
   return (
     <div className="min-h-screen py-12">
       <div className="page-shell space-y-10">
-        <section className="edge-shell rounded-[32px] border border-white/60 bg-white/80 p-8 shadow backdrop-blur">
+        <section className="rounded-[32px] border border-white/60 bg-white/80 p-8 shadow backdrop-blur">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-sm uppercase tracking-wide text-zinc-500">
@@ -135,7 +135,7 @@ export default async function StorePage() {
           </div>
         </section>
 
-        <section className="edge-shell">
+        <section>
           <ModuleStoreGrid
             entries={entries}
             enabledKeys={enabledKeys}
