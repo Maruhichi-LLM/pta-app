@@ -24,11 +24,9 @@ async function requireOrgSession(orgIdParam: string) {
   if (!session) {
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
-  const orgId = Number(orgIdParam);
+  let orgId = Number(orgIdParam);
   if (!Number.isInteger(orgId) || orgId <= 0) {
-    return {
-      error: NextResponse.json({ error: "Invalid organization id" }, { status: 400 }),
-    };
+    orgId = session.groupId;
   }
   if (session.groupId !== orgId) {
     return {

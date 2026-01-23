@@ -27,17 +27,19 @@ const formatter = new Intl.DateTimeFormat("ja-JP", {
 });
 
 type PageProps = {
-  params: { threadId: string };
-  searchParams?: { message?: string };
+  params: Promise<{ threadId: string }>;
+  searchParams?: Promise<{ message?: string }>;
 };
 
 export default async function ThreadDetailPage({ params, searchParams }: PageProps) {
+  const resolvedParams = await params;
+  const resolvedSearchParams = (await searchParams) ?? {};
   const session = await getSessionFromCookies();
   if (!session) {
     redirect("/join");
   }
   await ensureModuleEnabled(session.groupId, "chat");
-  const threadId = Number(params.threadId);
+  const threadId = Number(resolvedParams.threadId);
   if (!Number.isInteger(threadId)) {
     redirect("/chat");
   }
@@ -73,7 +75,7 @@ export default async function ThreadDetailPage({ params, searchParams }: PagePro
     }),
   ]);
 
-  const focusedMessageId = Number(searchParams?.message ?? "");
+  const focusedMessageId = Number(resolvedSearchParams?.message ?? "");
   const sourceLink = resolveSourceLink(thread.sourceType, thread.sourceId);
 
   return (
@@ -118,40 +120,64 @@ export default async function ThreadDetailPage({ params, searchParams }: PagePro
                     まだメッセージがありません。最初のアクションを記録しましょう。
                   </p>
                 ) : (
-                  thread.messages.map((message) => (
-                    <article
-                      key={message.id}
-                      id={`message-${message.id}`}
-                      className={`rounded-xl border px-4 py-3 shadow-sm ${
-                        Number.isInteger(focusedMessageId) &&
-                        focusedMessageId === message.id
-                          ? "border-sky-300 bg-sky-50"
-                          : "border-zinc-100 bg-white"
-                      }`}
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
-                        <span className="font-semibold text-zinc-700">
-                          {message.author.displayName}
-                        </span>
-                        <time dateTime={message.createdAt.toISOString()}>
-                          {formatter.format(message.createdAt)}
-                        </time>
+                  thread.messages.map((message) => {
+                    const isOwn = message.author.id === session.memberId;
+                    const isFocused =
+                      Number.isInteger(focusedMessageId) &&
+                      focusedMessageId === message.id;
+                    const bubbleClasses = isOwn
+                      ? "bg-sky-600 text-white border-sky-500"
+                      : "bg-white text-zinc-800 border-zinc-100";
+                    return (
+                      <div
+                        key={message.id}
+                        className={`flex w-full ${
+                          isOwn ? "justify-end" : "justify-start"
+                        }`}
+                      >
+                        <article
+                          id={`message-${message.id}`}
+                          className={`max-w-[75%] rounded-2xl border px-4 py-3 shadow-sm ${
+                            isFocused ? "ring-2 ring-sky-300" : ""
+                          } ${bubbleClasses}`}
+                        >
+                          <div
+                            className={`flex flex-col text-xs ${
+                              isOwn ? "items-end text-white/80" : "text-zinc-500"
+                            }`}
+                          >
+                            <span
+                              className={`font-semibold ${
+                                isOwn ? "text-white" : "text-zinc-700"
+                              }`}
+                            >
+                              {message.author.displayName}
+                            </span>
+                            <time dateTime={message.createdAt.toISOString()}>
+                              {formatter.format(message.createdAt)}
+                            </time>
+                          </div>
+                          <p
+                            className={`mt-2 whitespace-pre-wrap break-words text-sm ${
+                              isOwn ? "text-white" : "text-zinc-800"
+                            }`}
+                          >
+                            {message.body}
+                          </p>
+                          <div className={`mt-3 flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                            <ChatMessageActions
+                              messageId={message.id}
+                              convertedTargets={{
+                                todo: message.todoItems.length > 0,
+                                accounting: message.ledgerEntries.length > 0,
+                                document: message.documents.length > 0,
+                              }}
+                            />
+                          </div>
+                        </article>
                       </div>
-                      <p className="mt-2 whitespace-pre-wrap break-words text-sm text-zinc-800">
-                        {message.body}
-                      </p>
-                      <div className="mt-3 flex justify-end">
-                        <ChatMessageActions
-                          messageId={message.id}
-                          convertedTargets={{
-                            todo: message.todoItems.length > 0,
-                            accounting: message.ledgerEntries.length > 0,
-                            document: message.documents.length > 0,
-                          }}
-                        />
-                      </div>
-                    </article>
-                  ))
+                    );
+                  })
                 )}
               </div>
               <ChatInput threadId={thread.id} />
