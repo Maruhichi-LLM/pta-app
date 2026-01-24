@@ -391,6 +391,11 @@ export default async function LedgerPage({ searchParams }: PageProps) {
   const budgetStatusLabel = isBudgetEnabled ? "有効" : "停止中";
   const overviewStats = [
     {
+      label: "会計年度",
+      value: fiscalYearLabel,
+      description: "現在表示中の年度",
+    },
+    {
       label: "決算月",
       value: closingMonthLabel,
       description: "現在の期末設定",
@@ -962,7 +967,7 @@ export default async function LedgerPage({ searchParams }: PageProps) {
           <p className="mt-1 text-sm text-zinc-600">
             モジュール全体のステータスを確認できます。
           </p>
-          <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {overviewStats.map((stat) => (
               <div
                 key={stat.label}
