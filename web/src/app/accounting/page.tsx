@@ -12,6 +12,7 @@ import { KNOT_CALENDAR_PATH } from "@/lib/routes";
 import { revalidatePath } from "next/cache";
 import { AccountingLayout } from "@/components/accounting-layout";
 import { BudgetInputField } from "@/components/budget-input-field";
+import { AccountingSettingsForm } from "@/components/accounting-settings-form";
 
 export const dynamic = "force-dynamic";
 
@@ -645,84 +646,17 @@ export default async function LedgerPage({ searchParams }: PageProps) {
               </p>
             </div>
           </dl>
-          <ConfirmSubmitForm
-            action={saveAccountingSettingsAction}
-            className="mt-4 space-y-4"
-            title="会計年度と承認フロー"
-            message="この内容で保存しますか？"
-          >
-            <input type="hidden" name="currentFiscalYear" value={targetFiscalYear} />
-            <label className="block text-sm text-zinc-600">
-              表示する年度
-              <select
-                name="displayFiscalYear"
-                defaultValue={targetFiscalYear}
-                className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              >
-                {fiscalYearOptions.map((year) => (
-                  <option key={year} value={year}>
-                    {year}年度
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="space-y-4">
-              <label className="block text-sm text-zinc-600">
-                期首
-                <select
-                  name="startMonth"
-                  defaultValue={setting.fiscalYearStartMonth}
-                  className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                >
-                  {MONTH_VALUES.map((month) => (
-                    <option key={month} value={month}>
-                      {month}月
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-sm text-zinc-600">
-                期末
-                <select
-                  name="endMonth"
-                  defaultValue={setting.fiscalYearEndMonth}
-                  className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                >
-                  {MONTH_VALUES.map((month) => (
-                    <option key={month} value={month}>
-                      {month}月
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-sm text-zinc-600">
-                前期繰越金（円）
-                <input
-                  type="number"
-                  name="carryoverAmount"
-                  defaultValue={setting.carryoverAmount}
-                  className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                />
-              </label>
-            </div>
-            <label className="block text-sm text-zinc-600">
-              承認フローのメモ
-              <textarea
-                name="approvalFlow"
-                defaultValue={setting.approvalFlow ?? ""}
-                rows={3}
-                className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              />
-            </label>
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-700"
-              >
-                設定を保存
-              </button>
-            </div>
-          </ConfirmSubmitForm>
+          <div className="mt-4">
+            <AccountingSettingsForm
+              fiscalYearOptions={fiscalYearOptions}
+              currentFiscalYear={targetFiscalYear}
+              startMonth={setting.fiscalYearStartMonth}
+              endMonth={setting.fiscalYearEndMonth}
+              carryoverAmount={setting.carryoverAmount ?? 0}
+              approvalFlow={setting.approvalFlow ?? ""}
+              action={saveAccountingSettingsAction}
+            />
+          </div>
         </section>
       ),
     });

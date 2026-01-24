@@ -13,6 +13,7 @@ type ConfirmSubmitFormProps = FormHTMLAttributes<HTMLFormElement> & {
   message?: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  confirmContent?: ReactNode;
 };
 
 export function ConfirmSubmitForm({
@@ -20,6 +21,7 @@ export function ConfirmSubmitForm({
   message = "この内容で送信しますか？",
   confirmLabel = "送信する",
   cancelLabel = "キャンセル",
+  confirmContent,
   children,
   onSubmit,
   ...rest
@@ -57,15 +59,19 @@ export function ConfirmSubmitForm({
         {children as ReactNode}
       </form>
       {showDialog ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 px-4 py-6">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <p className="text-sm text-zinc-500">{title}</p>
-            <p className="mt-1 text-base text-zinc-900">{message}</p>
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4 py-6">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-semibold text-zinc-900">{title}</h3>
+            {confirmContent ? (
+              <div className="mt-2">{confirmContent}</div>
+            ) : (
+              <p className="mt-2 text-sm text-zinc-600">{message}</p>
+            )}
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={closeDialog}
-                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm text-zinc-600"
+                className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50"
               >
                 {cancelLabel}
               </button>
