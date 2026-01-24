@@ -11,6 +11,7 @@ import { ensureModuleEnabled } from "@/lib/modules";
 import { KNOT_CALENDAR_PATH } from "@/lib/routes";
 import { revalidatePath } from "next/cache";
 import { AccountingLayout } from "@/components/accounting-layout";
+import { BudgetInputField } from "@/components/budget-input-field";
 
 export const dynamic = "force-dynamic";
 
@@ -409,10 +410,14 @@ export default async function LedgerPage({ searchParams }: PageProps) {
       description: "登録済みの繰越金額",
     },
   ];
+  const pendingCount = data.ledgers.filter((ledger) => ledger.status === "PENDING").length;
+  const hasPendingItems = pendingCount > 0;
+
   const navigationItems: Array<{
     id: string;
     label: string;
     description: string;
+    highlight?: boolean;
   }> = [];
 
   navigationItems.push({
@@ -423,7 +428,10 @@ export default async function LedgerPage({ searchParams }: PageProps) {
   navigationItems.push({
     id: "ledger-list",
     label: "経費一覧",
-    description: `${ledgerCountLabel}の履歴`,
+    description: hasPendingItems
+      ? `承認待ち ${pendingCount}件 / 全 ${data.ledgers.length}件`
+      : `${ledgerCountLabel}の履歴`,
+    highlight: hasPendingItems,
   });
 
   if (canManage) {
@@ -910,22 +918,18 @@ export default async function LedgerPage({ searchParams }: PageProps) {
                         </div>
                         <div className="divide-y divide-zinc-100">
                           {incomeBudgetAccounts.map((account) => (
-                            <label
+                            <div
                               key={account.id}
                               className="flex flex-col gap-1 px-4 py-3 text-sm text-zinc-600 lg:flex-row lg:items-center lg:gap-3"
                             >
                               <span className="flex-1 font-medium text-zinc-800">
                                 {account.name}
                               </span>
-                              <input
-                                name={`budget-${account.id}`}
-                                defaultValue={budgetMap.get(account.id) ?? ""}
-                                type="number"
-                                min={0}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 lg:max-w-[200px]"
-                                placeholder="0"
+                              <BudgetInputField
+                                accountId={account.id}
+                                defaultValue={budgetMap.get(account.id)}
                               />
-                            </label>
+                            </div>
                           ))}
                         </div>
                       </div>
@@ -937,22 +941,18 @@ export default async function LedgerPage({ searchParams }: PageProps) {
                         </div>
                         <div className="divide-y divide-zinc-100">
                           {expenseAccounts.map((account) => (
-                            <label
+                            <div
                               key={account.id}
                               className="flex flex-col gap-1 px-4 py-3 text-sm text-zinc-600 lg:flex-row lg:items-center lg:gap-3"
                             >
                               <span className="flex-1 font-medium text-zinc-800">
                                 {account.name}
                               </span>
-                              <input
-                                name={`budget-${account.id}`}
-                                defaultValue={budgetMap.get(account.id) ?? ""}
-                                type="number"
-                                min={0}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 lg:max-w-[200px]"
-                                placeholder="0"
+                              <BudgetInputField
+                                accountId={account.id}
+                                defaultValue={budgetMap.get(account.id)}
                               />
-                            </label>
+                            </div>
                           ))}
                         </div>
                       </div>

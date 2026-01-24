@@ -6,6 +6,7 @@ type NavigationItem = {
   id: string;
   label: string;
   description: string;
+  highlight?: boolean;
 };
 
 type SectionDefinition = {
@@ -57,6 +58,7 @@ export function AccountingLayout({
           <ul className="mt-4 space-y-3">
             {navigationItems.map((item) => {
               const isActive = item.id === activeSection;
+              const isHighlighted = item.highlight && !isActive;
               return (
                 <li key={item.id}>
                   <button
@@ -65,14 +67,16 @@ export function AccountingLayout({
                     className={`block w-full rounded-xl border px-4 py-3 text-left transition min-h-[80px] ${
                       isActive
                         ? "border-sky-600 bg-white shadow-sm"
+                        : isHighlighted
+                        ? "border-amber-300 bg-amber-50 hover:border-amber-400 hover:bg-amber-100 shadow-sm"
                         : "border-zinc-200 bg-zinc-50 hover:border-sky-500 hover:bg-white"
                     }`}
                     aria-current={isActive ? "page" : undefined}
                   >
-                    <p className="text-sm font-semibold text-zinc-900">
+                    <p className={`text-sm font-semibold ${isHighlighted ? "text-amber-900" : "text-zinc-900"}`}>
                       {item.label}
                     </p>
-                    <p className="mt-0.5 text-xs text-zinc-500">
+                    <p className={`mt-0.5 text-xs ${isHighlighted ? "text-amber-700 font-medium" : "text-zinc-500"}`}>
                       {item.description}
                     </p>
                   </button>
