@@ -668,8 +668,8 @@ export default async function LedgerPage() {
 
   return (
     <div className="min-h-screen py-10">
-      <div className="page-shell grid gap-8 lg:grid-cols-[360px,minmax(0,1fr)]">
-        <header className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm lg:col-span-2">
+      <div className="page-shell flex flex-col gap-6">
+        <header className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
           <p className="text-sm uppercase tracking-wide text-zinc-500">
             Knot Accounting
           </p>
@@ -686,13 +686,14 @@ export default async function LedgerPage() {
             ← Knot Calendar へ戻る
           </Link>
         </header>
-
-        <AccountingLayout
-          navigationItems={navigationItems}
-          sections={sections}
-          defaultSectionId={defaultSectionId}
-          summaryCard={summaryCard}
-        />
+        <div className="grid gap-4 items-start lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)] lg:justify-items-start">
+          <AccountingLayout
+            navigationItems={navigationItems}
+            sections={sections}
+            defaultSectionId={defaultSectionId}
+            summaryCard={summaryCard}
+          />
+        </div>
       </div>
     </div>
   );

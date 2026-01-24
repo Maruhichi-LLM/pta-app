@@ -49,7 +49,7 @@ export function AccountingLayout({
 
   return (
     <>
-      <div className="flex min-w-[340px] max-w-[360px] flex-col gap-4">
+      <div className="flex w-full flex-col gap-4 lg:max-w-[340px]">
         <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
           <p className="text-xs uppercase tracking-wide text-zinc-500">
             設定と一覧
@@ -83,13 +83,16 @@ export function AccountingLayout({
         </section>
         {summaryCard}
       </div>
-      <div className="flex flex-col gap-8">
-        {activeContent ?? (
-          <section className="rounded-2xl border border-dashed border-zinc-200 bg-white/80 p-6 text-sm text-zinc-600">
-            表示できるコンテンツが見つかりません。左メニューから別の項目を選択してください。
-          </section>
-        )}
+      <div className="flex w-full flex-col gap-8 lg:max-w-none">
+        <div className="w-full">
+          {activeContent ?? (
+            <section className="rounded-2xl border border-dashed border-zinc-200 bg-white/80 p-6 text-sm text-zinc-600">
+              表示できるコンテンツが見つかりません。左メニューから別の項目を選択してください。
+            </section>
+          )}
+        </div>
       </div>
+
     </>
   );
 }
