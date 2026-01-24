@@ -41,7 +41,7 @@ export default function RegisterPage() {
       }
 
       router.push(KNOT_CALENDAR_PATH);
-    } catch (err) {
+    } catch {
       setError("通信に失敗しました。時間をおいて再度お試しください。");
     } finally {
       setIsSubmitting(false);

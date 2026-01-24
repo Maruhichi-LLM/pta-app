@@ -45,8 +45,11 @@ export async function GET(request: Request) {
   if (!Number.isNaN(fiscalYear) && fiscalYear > 0) {
     filter.fiscalYear = fiscalYear;
   }
-  if (categoryParam && DOCUMENT_CATEGORIES.includes(categoryParam as any)) {
-    filter.category = categoryParam;
+  if (categoryParam) {
+    const category = parseCategory(categoryParam);
+    if (category) {
+      filter.category = category;
+    }
   }
   if (!isAdmin) {
     filter.groupId = memberGroupId;

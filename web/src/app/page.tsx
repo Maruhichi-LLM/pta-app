@@ -89,24 +89,28 @@ export default async function RootPage() {
           </div>
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
             {moduleOrder.map((key) => {
-              const module = moduleMap.get(key);
-              if (!module) return null;
-              const metadata = MODULE_METADATA[module.key];
-              const isEnabled = enabled.includes(module.key);
+              const moduleLink = moduleMap.get(key);
+              if (!moduleLink) return null;
+              const metadata = MODULE_METADATA[moduleLink.key];
+              const isEnabled = enabled.includes(moduleLink.key);
               const variant = metadata?.variant ?? "default";
               const variantStyles = VARIANT_STYLES[variant];
               const targetHref =
-                session && isEnabled ? module.href : session ? undefined : "/join";
+                session && isEnabled
+                  ? moduleLink.href
+                  : session
+                  ? undefined
+                  : "/join";
               return (
                 <div
-                  key={module.key}
+                  key={moduleLink.key}
                   className={`rounded-2xl border p-5 shadow-sm flex h-full min-h-[260px] flex-col justify-between ${variantStyles.border}`}
                 >
                   <div>
                     <p
                       className={`text-xs uppercase tracking-wide ${variantStyles.label}`}
                     >
-                      {module.label}
+                      {moduleLink.label}
                       <span className="ml-2 text-[0.65rem] text-zinc-400">
                         {isEnabled
                           ? "MODULE ENABLED"
@@ -121,7 +125,7 @@ export default async function RootPage() {
                       </p>
                     ) : null}
                     <h3 className="mt-2 text-xl font-semibold text-zinc-900">
-                      {module.label}
+                      {moduleLink.label}
                     </h3>
                     <p className="mt-3 text-sm text-zinc-600">
                       {metadata?.description}
