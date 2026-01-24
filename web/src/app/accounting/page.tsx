@@ -387,6 +387,28 @@ export default async function LedgerPage({ searchParams }: PageProps) {
   )}円`;
   const isBudgetEnabled = setting.budgetEnabled !== false;
   const budgetStatusLabel = isBudgetEnabled ? "有効" : "停止中";
+  const overviewStats = [
+    {
+      label: "決算月",
+      value: closingMonthLabel,
+      description: "現在の期末設定",
+    },
+    {
+      label: "承認待ち件数",
+      value: pendingLedgerCountLabel,
+      description: "手続き待ちの経費",
+    },
+    {
+      label: "予算管理",
+      value: budgetStatusLabel,
+      description: "機能の稼働状況",
+    },
+    {
+      label: "前期繰越",
+      value: carryoverAmountLabel,
+      description: "登録済みの繰越金額",
+    },
+  ];
   const navigationItems: Array<{
     id: string;
     label: string;
@@ -1032,6 +1054,30 @@ export default async function LedgerPage({ searchParams }: PageProps) {
             ← Knot Calendar へ戻る
           </Link>
         </header>
+        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-zinc-900">現在の状況</h2>
+          <p className="mt-1 text-sm text-zinc-600">
+            モジュール全体のステータスを確認できます。
+          </p>
+          <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {overviewStats.map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-xl border border-zinc-100 bg-zinc-50 p-4"
+              >
+                <dt className="text-xs uppercase tracking-wide text-zinc-500">
+                  {stat.label}
+                </dt>
+                <dd className="mt-2 text-2xl font-semibold text-zinc-900">
+                  {stat.value}
+                </dd>
+                <p className="mt-1 text-xs text-zinc-500">
+                  {stat.description}
+                </p>
+              </div>
+            ))}
+          </dl>
+        </section>
         <div className="grid gap-4 items-start lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)] lg:justify-items-start">
           <AccountingLayout
             navigationItems={navigationItems}
