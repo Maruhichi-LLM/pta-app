@@ -4,7 +4,7 @@ import { getSessionFromCookies } from "@/lib/session";
 import { EventList, type EventDisplay } from "@/components/event-list";
 import { EventForm } from "@/components/event-form";
 import { ROLE_ADMIN } from "@/lib/roles";
-import { ensureModuleEnabled } from "@/lib/modules";
+import { ensureModuleEnabled, isModuleEnabled } from "@/lib/modules";
 
 function buildInitialStartsAt(date?: string) {
   if (!date) return undefined;
