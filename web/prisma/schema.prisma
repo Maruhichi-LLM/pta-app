@@ -25,27 +25,31 @@ model Group {
   budgets              Budget[]
   enabledModules       String[]     @default([])
   documents            Document[]
+  eventBudgets         EventBudget[]
 }
 
 model Member {
-  id                Int          @id @default(autoincrement())
-  groupId           Int
-  group             Group        @relation(fields: [groupId], references: [id])
-  displayName       String
-  role              String
-  email             String?      @unique
-  passwordHash      String?
-  createdAt         DateTime     @default(now())
-  usedInviteCodes   InviteCode[] @relation("InviteCodeUsedBy")
-  ledgerEntries     Ledger[]     @relation("LedgerCreatedBy")
-  approvals         Approval[]   @relation("ApprovalActor")
-  attendances       Attendance[]
-  personalEvents    PersonalEvent[]
-  documents         Document[]
-  documentVersions  DocumentVersion[]
-  chatMessages      ChatMessage[]
-  todoItemsCreated  TodoItem[]   @relation("TodoCreatedBy")
-  todoItemsAssigned TodoItem[]   @relation("TodoAssignedTo")
+  id                      Int                  @id @default(autoincrement())
+  groupId                 Int
+  group                   Group                @relation(fields: [groupId], references: [id])
+  displayName             String
+  role                    String
+  email                   String?              @unique
+  passwordHash            String?
+  createdAt               DateTime             @default(now())
+  usedInviteCodes         InviteCode[]         @relation("InviteCodeUsedBy")
+  ledgerEntries           Ledger[]             @relation("LedgerCreatedBy")
+  approvals               Approval[]           @relation("ApprovalActor")
+  attendances             Attendance[]
+  personalEvents          PersonalEvent[]
+  documents               Document[]
+  documentVersions        DocumentVersion[]
+  chatMessages            ChatMessage[]
+  todoItemsCreated        TodoItem[]           @relation("TodoCreatedBy")
+  todoItemsAssigned       TodoItem[]           @relation("TodoAssignedTo")
+  eventBudgetsConfirmed   EventBudget[]        @relation("EventBudgetConfirmedBy")
+  eventTransactionsCreated EventTransaction[]  @relation("EventTransactionCreatedBy")
+  eventBudgetImports      EventBudgetImport[]  @relation("EventBudgetImportedBy")
 }
 
 model InviteCode {
@@ -82,8 +86,11 @@ model Ledger {
   sourceThread        ChatThread?   @relation("LedgerThread", fields: [sourceThreadId], references: [id])
   accountId           Int?
   account             Account?      @relation("AccountLedgers", fields: [accountId], references: [id])
+  eventBudgetId       Int?
+  eventBudget         EventBudget?  @relation("LedgerEventBudget", fields: [eventBudgetId], references: [id])
 
   @@index([sourceThreadId])
+  @@index([eventBudgetId])
 }
 
 model Approval {
@@ -110,6 +117,7 @@ model Event {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   documents   Document[]
+  budget      EventBudget?
 }
 
 model Attendance {
@@ -295,18 +303,31 @@ enum TodoStatus {
   DONE
 }
 
+enum EventBudgetStatus {
+  PLANNING
+  IN_PROGRESS
+  CONFIRMED
+  IMPORTED
+}
+
+enum EventTransactionType {
+  REVENUE
+  EXPENSE
+}
+
 model Account {
-  id         Int         @id @default(autoincrement())
-  groupId    Int
-  group      Group       @relation(fields: [groupId], references: [id])
-  name       String
-  type       AccountType
-  isCustom   Boolean     @default(false)
-  isArchived Boolean     @default(false)
-  order      Int         @default(0)
-  createdAt  DateTime    @default(now())
-  budgets    Budget[]
-  ledgers    Ledger[]    @relation("AccountLedgers")
+  id                 Int                  @id @default(autoincrement())
+  groupId            Int
+  group              Group                @relation(fields: [groupId], references: [id])
+  name               String
+  type               AccountType
+  isCustom           Boolean              @default(false)
+  isArchived         Boolean              @default(false)
+  order              Int                  @default(0)
+  createdAt          DateTime             @default(now())
+  budgets            Budget[]
+  ledgers            Ledger[]             @relation("AccountLedgers")
+  eventTransactions  EventTransaction[]   @relation("EventTransactionAccount")
 }
 
 model FinancialAccount {
@@ -345,4 +366,61 @@ model Budget {
   createdAt  DateTime @default(now())
 
   @@unique([groupId, accountId, fiscalYear])
+}
+
+model EventBudget {
+  id                 Int                  @id @default(autoincrement())
+  eventId            Int                  @unique
+  event              Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  groupId            Int
+  group              Group                @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  plannedRevenue     Int                  @default(0)
+  plannedExpense     Int                  @default(0)
+  actualRevenue      Int                  @default(0)
+  actualExpense      Int                  @default(0)
+  status             EventBudgetStatus    @default(PLANNING)
+  confirmedAt        DateTime?
+  confirmedById      Int?
+  confirmedBy        Member?              @relation("EventBudgetConfirmedBy", fields: [confirmedById], references: [id])
+  importedToLedgerAt DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  transactions       EventTransaction[]
+  imports            EventBudgetImport[]
+  ledgerEntries      Ledger[]             @relation("LedgerEventBudget")
+
+  @@index([groupId])
+  @@index([eventId])
+}
+
+model EventTransaction {
+  id                Int                  @id @default(autoincrement())
+  eventBudgetId     Int
+  eventBudget       EventBudget          @relation(fields: [eventBudgetId], references: [id], onDelete: Cascade)
+  type              EventTransactionType
+  accountId         Int?
+  account           Account?             @relation("EventTransactionAccount", fields: [accountId], references: [id])
+  amount            Int
+  description       String
+  transactionDate   DateTime
+  createdByMemberId Int
+  createdBy         Member               @relation("EventTransactionCreatedBy", fields: [createdByMemberId], references: [id])
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([eventBudgetId])
+  @@index([accountId])
+}
+
+model EventBudgetImport {
+  id                 Int         @id @default(autoincrement())
+  eventBudgetId      Int
+  eventBudget        EventBudget @relation(fields: [eventBudgetId], references: [id], onDelete: Cascade)
+  importedByMemberId Int
+  importedBy         Member      @relation("EventBudgetImportedBy", fields: [importedByMemberId], references: [id])
+  importedAt         DateTime    @default(now())
+  ledgerEntryCount   Int
+  notes              String?
+
+  @@index([eventBudgetId])
 }

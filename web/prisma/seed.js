@@ -28,6 +28,9 @@ async function main() {
   await prisma.todoItem.deleteMany();
   await prisma.chatMessage.deleteMany();
   await prisma.chatThread.deleteMany();
+  await prisma.eventBudgetImport.deleteMany();
+  await prisma.eventTransaction.deleteMany();
+  await prisma.eventBudget.deleteMany();
   await prisma.attendance.deleteMany();
   await prisma.event.deleteMany();
   await prisma.approval.deleteMany();
@@ -48,6 +51,7 @@ async function main() {
       fiscalYearStartMonth: 4,
       enabledModules: [
         "event",
+        "event-budget",
         "calendar",
         "accounting",
         "management",
