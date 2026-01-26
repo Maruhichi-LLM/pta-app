@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionFromCookies } from "@/lib/session";
 import { ROLE_ADMIN } from "@/lib/roles";
-import PDFDocument from "pdfkit";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
+import fs from "fs";
+import path from "path";
 
 function formatDate(value: Date | null) {
   if (!value) return "";
@@ -39,61 +42,228 @@ export async function GET() {
     orderBy: { startsAt: "asc" },
   });
 
-  const pdfBuffer = await new Promise<Buffer>((resolve, reject) => {
-    const doc = new PDFDocument({ size: "A4", margin: 50 });
-    const chunks: Buffer[] = [];
-    doc.on("data", (chunk) => chunks.push(chunk));
-    doc.on("end", () => resolve(Buffer.concat(chunks)));
-    doc.on("error", reject);
+  try {
+    // PDFドキュメント作成
+    const pdfDoc = await PDFDocument.create();
 
-    doc.fontSize(18).text(`${member.group.name} イベント出欠`, { align: "center" });
-    doc.moveDown();
+    // fontkitを登録
+    pdfDoc.registerFontkit(fontkit);
+
+    // 日本語フォントを読み込み
+    const fontPath = path.join(process.cwd(), "public", "fonts", "NotoSansJP-Regular.otf");
+
+    if (!fs.existsSync(fontPath)) {
+      return NextResponse.json(
+        { error: "フォントファイルが見つかりません。" },
+        { status: 500 }
+      );
+    }
+
+    const fontBytes = fs.readFileSync(fontPath);
+    const customFont = await pdfDoc.embedFont(fontBytes);
+
+    // タイトルページ
+    let page = pdfDoc.addPage([595, 842]); // A4サイズ
+    const { width, height } = page.getSize();
+
+    // タイトル
+    const title = `${member.group.name} イベント出欠`;
+    const titleSize = 18;
+    const titleWidth = customFont.widthOfTextAtSize(title, titleSize);
+
+    page.drawText(title, {
+      x: (width - titleWidth) / 2,
+      y: height - 100,
+      size: titleSize,
+      font: customFont,
+      color: rgb(0, 0, 0),
+    });
+
+    let currentY = height - 150;
 
     if (events.length === 0) {
-      doc.fontSize(12).text("登録されたイベントはありません。");
+      page.drawText("登録されたイベントはありません。", {
+        x: 50,
+        y: currentY,
+        size: 12,
+        font: customFont,
+        color: rgb(0, 0, 0),
+      });
     } else {
-      events.forEach((event, index) => {
-        if (index > 0) doc.addPage();
-        doc
-          .fontSize(14)
-          .text(event.title, { underline: true })
-          .moveDown(0.3);
-        doc.fontSize(12).text(`日時: ${formatDate(event.startsAt)}${event.endsAt ? ` 〜 ${formatDate(event.endsAt)}` : ""}`);
-        if (event.location) {
-          doc.text(`場所: ${event.location}`);
-        }
-        if (event.description) {
-          doc.moveDown(0.5).text(event.description);
-        }
-        doc.moveDown();
+      for (let i = 0; i < events.length; i++) {
+        const event = events[i];
 
+        // 新しいページが必要な場合
+        if (i > 0) {
+          page = pdfDoc.addPage([595, 842]);
+          currentY = height - 50;
+        }
+
+        // イベントタイトル
+        page.drawText(event.title, {
+          x: 50,
+          y: currentY,
+          size: 14,
+          font: customFont,
+          color: rgb(0, 0, 0),
+        });
+        currentY -= 25;
+
+        // 日時
+        const dateText = `日時: ${formatDate(event.startsAt)}${event.endsAt ? ` 〜 ${formatDate(event.endsAt)}` : ""}`;
+        page.drawText(dateText, {
+          x: 50,
+          y: currentY,
+          size: 12,
+          font: customFont,
+          color: rgb(0, 0, 0),
+        });
+        currentY -= 20;
+
+        // 場所
+        if (event.location) {
+          page.drawText(`場所: ${event.location}`, {
+            x: 50,
+            y: currentY,
+            size: 12,
+            font: customFont,
+            color: rgb(0, 0, 0),
+          });
+          currentY -= 20;
+        }
+
+        // 説明
+        if (event.description) {
+          // 長いテキストを複数行に分割
+          const maxWidth = width - 100;
+          const descLines = wrapText(event.description, customFont, 12, maxWidth);
+
+          for (const line of descLines) {
+            if (currentY < 100) {
+              page = pdfDoc.addPage([595, 842]);
+              currentY = height - 50;
+            }
+            page.drawText(line, {
+              x: 50,
+              y: currentY,
+              size: 12,
+              font: customFont,
+              color: rgb(0, 0, 0),
+            });
+            currentY -= 20;
+          }
+        }
+
+        currentY -= 10;
+
+        // 参加状況集計
         const counts = {
           YES: event.attendances.filter((a) => a.status === "YES").length,
           NO: event.attendances.filter((a) => a.status === "NO").length,
           MAYBE: event.attendances.filter((a) => a.status === "MAYBE").length,
         };
-        doc.text(`参加: ${counts.YES}名　未定: ${counts.MAYBE}名　不参加: ${counts.NO}名`).moveDown();
 
-        doc.fontSize(12).text("参加状況", { underline: true }).moveDown(0.5);
+        const countText = `参加: ${counts.YES}名　未定: ${counts.MAYBE}名　不参加: ${counts.NO}名`;
+        page.drawText(countText, {
+          x: 50,
+          y: currentY,
+          size: 12,
+          font: customFont,
+          color: rgb(0, 0, 0),
+        });
+        currentY -= 30;
+
+        // 参加状況リスト
+        page.drawText("参加状況", {
+          x: 50,
+          y: currentY,
+          size: 12,
+          font: customFont,
+          color: rgb(0, 0, 0),
+        });
+        currentY -= 20;
+
         if (event.attendances.length === 0) {
-          doc.text("出欠の回答はありません。");
-        } else {
-          event.attendances.forEach((attendance) => {
-            doc.text(
-              `${formatDate(attendance.respondedAt)} - ${attendance.member.displayName} : ${attendance.status}${attendance.comment ? `（${attendance.comment}）` : ""}`
-            );
+          page.drawText("出欠の回答はありません。", {
+            x: 50,
+            y: currentY,
+            size: 12,
+            font: customFont,
+            color: rgb(0, 0, 0),
           });
+          currentY -= 20;
+        } else {
+          for (const attendance of event.attendances) {
+            if (currentY < 50) {
+              page = pdfDoc.addPage([595, 842]);
+              currentY = height - 50;
+            }
+
+            const statusText = attendance.status === "YES" ? "参加" : attendance.status === "MAYBE" ? "未定" : "不参加";
+            const attendanceText = `${formatDate(attendance.respondedAt)} - ${attendance.member.displayName} : ${statusText}${attendance.comment ? `（${attendance.comment}）` : ""}`;
+
+            // 長いテキストを複数行に分割
+            const maxWidth = width - 100;
+            const lines = wrapText(attendanceText, customFont, 12, maxWidth);
+
+            for (const line of lines) {
+              if (currentY < 50) {
+                page = pdfDoc.addPage([595, 842]);
+                currentY = height - 50;
+              }
+              page.drawText(line, {
+                x: 50,
+                y: currentY,
+                size: 12,
+                font: customFont,
+                color: rgb(0, 0, 0),
+              });
+              currentY -= 18;
+            }
+          }
         }
-      });
+      }
     }
 
-    doc.end();
-  });
+    // PDFをバイト配列として保存
+    const pdfBytes = await pdfDoc.save();
 
-  return new NextResponse(pdfBuffer as unknown as BodyInit, {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": 'attachment; filename="events.pdf"',
-    },
-  });
+    return new NextResponse(Buffer.from(pdfBytes), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": 'attachment; filename="events.pdf"',
+      },
+    });
+  } catch (error) {
+    console.error("PDF generation error:", error);
+    return NextResponse.json(
+      { error: "PDFの生成に失敗しました。" },
+      { status: 500 }
+    );
+  }
+}
+
+// テキストを指定幅で折り返す関数
+function wrapText(text: string, font: any, fontSize: number, maxWidth: number): string[] {
+  const words = text.split(" ");
+  const lines: string[] = [];
+  let currentLine = "";
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    const testWidth = font.widthOfTextAtSize(testLine, fontSize);
+
+    if (testWidth > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  return lines;
 }

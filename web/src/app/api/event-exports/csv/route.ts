@@ -82,7 +82,9 @@ export async function GET() {
     }
   }
 
-  const csv = rows.map((row) => row.map(escapeCsv).join(",")).join("\n");
+  // UTF-8 BOMを追加してExcelでの文字化けを防止
+  const BOM = "\uFEFF";
+  const csv = BOM + rows.map((row) => row.map(escapeCsv).join(",")).join("\n");
   return new NextResponse(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
