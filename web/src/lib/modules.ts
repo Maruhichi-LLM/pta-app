@@ -25,12 +25,18 @@ export const DEFAULT_MODULE_KEYS: ModuleKey[] = MODULE_LINKS.map(
   (module) => module.key
 );
 
+export const SYSTEM_MODULES: ModuleKey[] = ["store", "management"];
+
 export function resolveModules(modules?: string[] | null) {
-  if (!modules || modules.length === 0) {
-    return DEFAULT_MODULE_KEYS;
-  }
-  return modules.filter((module): module is ModuleKey =>
-    DEFAULT_MODULE_KEYS.includes(module as ModuleKey)
+  const filteredModules: ModuleKey[] =
+    !modules || modules.length === 0
+      ? DEFAULT_MODULE_KEYS
+      : modules.filter((module): module is ModuleKey =>
+          DEFAULT_MODULE_KEYS.includes(module as ModuleKey)
+        );
+
+  return Array.from(
+    new Set<ModuleKey>([...filteredModules, ...SYSTEM_MODULES])
   );
 }
 
@@ -66,6 +72,10 @@ export async function isModuleEnabled(
     select: { enabledModules: true },
   });
   if (!group) return false;
+
+  if (SYSTEM_MODULES.includes(module as ModuleKey)) {
+    return true;
+  }
 
   return (group.enabledModules || []).includes(module);
 }

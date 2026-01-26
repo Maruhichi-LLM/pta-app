@@ -3,6 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { getSessionFromCookies } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { ROLE_ADMIN } from "@/lib/roles";
+import {
+  assertSameOrigin,
+  CSRF_ERROR_MESSAGE,
+  RATE_LIMIT_ERROR_MESSAGE,
+  checkRateLimit,
+  getRateLimitRule,
+  buildRateLimitKey,
+} from "@/lib/security";
 
 type EventPayload = {
   title?: string;
@@ -33,6 +41,14 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const csrf = assertSameOrigin(request);
+  if (!csrf.ok) {
+    return NextResponse.json(
+      { error: CSRF_ERROR_MESSAGE },
+      { status: 403 }
+    );
+  }
+
   const { id } = await params;
   const session = await getSessionFromCookies();
   if (!session) {
@@ -42,6 +58,28 @@ export async function PATCH(
   const admin = await ensureAdmin(session.memberId);
   if (!admin) {
     return NextResponse.json({ error: "権限がありません。" }, { status: 403 });
+  }
+
+  const { limit, windowSec } = getRateLimitRule("write");
+  const rate = checkRateLimit({
+    key: buildRateLimitKey({
+      scope: "write",
+      request,
+      memberId: session.memberId,
+    }),
+    limit,
+    windowSec,
+  });
+  if (!rate.ok) {
+    return NextResponse.json(
+      { error: RATE_LIMIT_ERROR_MESSAGE },
+      {
+        status: 429,
+        headers: rate.retryAfterSec
+          ? { "Retry-After": String(rate.retryAfterSec) }
+          : undefined,
+      }
+    );
   }
 
   const eventId = Number(id);

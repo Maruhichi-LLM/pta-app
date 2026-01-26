@@ -4,14 +4,23 @@ import { getSessionFromCookies } from "@/lib/session";
 import { ROLE_ADMIN } from "@/lib/roles";
 import {
   MODULE_LINKS,
-  ModuleKey,
   AllModuleKey,
   EXTENSION_MODULES,
-  resolveModules,
+  SYSTEM_MODULES,
 } from "@/lib/modules";
+import {
+  assertSameOrigin,
+  CSRF_ERROR_MESSAGE,
+  RATE_LIMIT_ERROR_MESSAGE,
+  checkRateLimit,
+  getRateLimitRule,
+  buildRateLimitKey,
+} from "@/lib/security";
 
 const TOGGLEABLE_KEYS: AllModuleKey[] = [
-  ...MODULE_LINKS.map((mod) => mod.key).filter((key) => key !== "store"),
+  ...MODULE_LINKS.map((mod) => mod.key).filter(
+    (key) => !SYSTEM_MODULES.includes(key)
+  ),
   ...EXTENSION_MODULES,
 ];
 
@@ -23,6 +32,14 @@ function isAllModuleKey(value: string): value is AllModuleKey {
 }
 
 export async function POST(request: NextRequest) {
+  const csrf = assertSameOrigin(request);
+  if (!csrf.ok) {
+    return NextResponse.json(
+      { error: CSRF_ERROR_MESSAGE },
+      { status: 403 }
+    );
+  }
+
   const session = await getSessionFromCookies();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -65,6 +82,28 @@ export async function POST(request: NextRequest) {
   // Include both core modules and extension modules
   const currentModules = (member.group.enabledModules || []) as string[];
   const modules = new Set(currentModules);
+
+  const { limit, windowSec } = getRateLimitRule("write");
+  const rate = checkRateLimit({
+    key: buildRateLimitKey({
+      scope: "write",
+      request,
+      memberId: session.memberId,
+    }),
+    limit,
+    windowSec,
+  });
+  if (!rate.ok) {
+    return NextResponse.json(
+      { error: RATE_LIMIT_ERROR_MESSAGE },
+      {
+        status: 429,
+        headers: rate.retryAfterSec
+          ? { "Retry-After": String(rate.retryAfterSec) }
+          : undefined,
+      }
+    );
+  }
 
   if (body.enable) {
     modules.add(body.moduleKey);

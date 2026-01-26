@@ -4,6 +4,14 @@ import { getSessionFromCookies } from "@/lib/session";
 import { ensureEventBudgetEnabled } from "@/lib/modules";
 import { revalidatePath } from "next/cache";
 import { EventTransactionType } from "@prisma/client";
+import {
+  assertSameOrigin,
+  CSRF_ERROR_MESSAGE,
+  RATE_LIMIT_ERROR_MESSAGE,
+  checkRateLimit,
+  getRateLimitRule,
+  buildRateLimitKey,
+} from "@/lib/security";
 
 type CreateTransactionRequest = {
   type: "REVENUE" | "EXPENSE";
@@ -20,6 +28,14 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const csrf = assertSameOrigin(request);
+  if (!csrf.ok) {
+    return NextResponse.json(
+      { error: CSRF_ERROR_MESSAGE },
+      { status: 403 }
+    );
+  }
+
   const session = await getSessionFromCookies();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -116,6 +132,28 @@ export async function POST(
     return NextResponse.json(
       { error: "支出には支出科目（EXPENSE）を選択してください。" },
       { status: 400 }
+    );
+  }
+
+  const { limit, windowSec } = getRateLimitRule("write");
+  const rate = checkRateLimit({
+    key: buildRateLimitKey({
+      scope: "write",
+      request,
+      memberId: session.memberId,
+    }),
+    limit,
+    windowSec,
+  });
+  if (!rate.ok) {
+    return NextResponse.json(
+      { error: RATE_LIMIT_ERROR_MESSAGE },
+      {
+        status: 429,
+        headers: rate.retryAfterSec
+          ? { "Retry-After": String(rate.retryAfterSec) }
+          : undefined,
+      }
     );
   }
 

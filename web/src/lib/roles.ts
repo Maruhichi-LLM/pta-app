@@ -1,6 +1,6 @@
-export const ROLE_ADMIN = "管理者";
-export const ROLE_ACCOUNTANT = "会計係";
-export const ROLE_MEMBER = "メンバー";
+export const ROLE_ADMIN = "ADMIN";
+export const ROLE_ACCOUNTANT = "ACCOUNTANT";
+export const ROLE_MEMBER = "MEMBER";
 
 export const ROLE_NAMES = {
   admin: ROLE_ADMIN,

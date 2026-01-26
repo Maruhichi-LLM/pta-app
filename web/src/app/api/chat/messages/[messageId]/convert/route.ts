@@ -6,6 +6,14 @@ import {
   loadChatMessageForConversion,
 } from "@/lib/chat-conversions";
 import { getSessionFromCookies } from "@/lib/session";
+import {
+  assertSameOrigin,
+  CSRF_ERROR_MESSAGE,
+  RATE_LIMIT_ERROR_MESSAGE,
+  checkRateLimit,
+  getRateLimitRule,
+  buildRateLimitKey,
+} from "@/lib/security";
 
 type ConversionTarget = "todo" | "accounting" | "document";
 
@@ -28,9 +36,39 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ messageId: string }> }
 ) {
+  const csrf = assertSameOrigin(request);
+  if (!csrf.ok) {
+    return NextResponse.json(
+      { error: CSRF_ERROR_MESSAGE },
+      { status: 403 }
+    );
+  }
+
   const session = await getSessionFromCookies();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { limit, windowSec } = getRateLimitRule("write");
+  const rate = checkRateLimit({
+    key: buildRateLimitKey({
+      scope: "write",
+      request,
+      memberId: session.memberId,
+    }),
+    limit,
+    windowSec,
+  });
+  if (!rate.ok) {
+    return NextResponse.json(
+      { error: RATE_LIMIT_ERROR_MESSAGE },
+      {
+        status: 429,
+        headers: rate.retryAfterSec
+          ? { "Retry-After": String(rate.retryAfterSec) }
+          : undefined,
+      }
+    );
   }
   const payload = (await request.json().catch(() => ({}))) as {
     target?: ConversionTarget;

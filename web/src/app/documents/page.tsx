@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getSessionFromCookies } from "@/lib/session";
 import { isPlatformAdminEmail } from "@/lib/admin";
 import { DocumentCategory } from "@prisma/client";
+import { DocumentCreateForm } from "@/components/document-create-form";
+import { DocumentDeleteButton } from "@/components/document-delete-button";
 
 const CATEGORY_LABELS: Record<DocumentCategory, string> = {
   POLICY: "規程・方針",
@@ -27,9 +29,10 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
   }
   const member = await prisma.member.findUnique({
     where: { id: session.memberId },
-    select: { email: true },
+    select: { email: true, role: true },
   });
   const isAdmin = isPlatformAdminEmail(member?.email ?? null);
+  const isGroupAdmin = member?.role === "ADMIN";
   const resolvedParams = (await searchParams) ?? {};
   const fiscalYearParam = Number(resolvedParams.fiscalYear ?? "");
   const categoryParam = resolvedParams.category;
@@ -207,6 +210,12 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
                               元チャット
                             </Link>
                           ) : null}
+                          {isAdmin || isGroupAdmin ? (
+                            <DocumentDeleteButton
+                              documentId={doc.id}
+                              documentTitle={doc.title}
+                            />
+                          ) : null}
                         </div>
                       </td>
                     </tr>
@@ -221,86 +230,12 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
           <h2 className="text-lg font-semibold text-zinc-900">
             新しい文書を保存
           </h2>
-          <form
-            action="/api/documents"
-            method="post"
-            encType="multipart/form-data"
-            className="mt-4 grid gap-4 md:grid-cols-2"
-          >
-            {isAdmin ? (
-              <label className="text-sm text-zinc-600">
-                団体
-                <select
-                  name="groupId"
-                  className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                >
-                  {adminGroups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : (
-              <input type="hidden" name="groupId" value={session.groupId} />
-            )}
-            <label className="text-sm text-zinc-600">
-              タイトル
-              <input
-                name="title"
-                className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                required
-              />
-            </label>
-            <label className="text-sm text-zinc-600">
-              種別
-              <select
-                name="category"
-                className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              >
-                {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="text-sm text-zinc-600">
-              年度
-              <input
-                type="number"
-                name="fiscalYear"
-                defaultValue={currentYear}
-                className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                required
-              />
-            </label>
-            <label className="text-sm text-zinc-600">
-              関連イベントID（任意）
-              <input
-                type="number"
-                name="eventId"
-                className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              />
-            </label>
-            <label className="text-sm text-zinc-600 md:col-span-2">
-              ファイル（20MBまで）
-              <input
-                type="file"
-                name="file"
-                className="mt-1 w-full rounded-lg border border-dashed border-zinc-300 px-3 py-2"
-                required
-              />
-            </label>
-            <div className="md:col-span-2 flex justify-end">
-              <button
-                type="submit"
-                className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
-              >
-                アップロード
-              </button>
-            </div>
-          </form>
+          <DocumentCreateForm
+            isAdmin={isAdmin}
+            adminGroups={adminGroups}
+            defaultGroupId={session.groupId}
+            currentYear={currentYear}
+          />
         </section>
       </div>
     </div>

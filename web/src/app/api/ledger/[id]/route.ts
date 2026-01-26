@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionFromCookies } from "@/lib/session";
 import { revalidatePath } from "next/cache";
+import {
+  assertSameOrigin,
+  CSRF_ERROR_MESSAGE,
+  RATE_LIMIT_ERROR_MESSAGE,
+  checkRateLimit,
+  getRateLimitRule,
+  buildRateLimitKey,
+} from "@/lib/security";
 
 type UpdateLedgerRequest = {
   ledgerId?: number | string;
@@ -27,9 +35,39 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const csrf = assertSameOrigin(request);
+  if (!csrf.ok) {
+    return NextResponse.json(
+      { error: CSRF_ERROR_MESSAGE },
+      { status: 403 }
+    );
+  }
+
   const session = await getSessionFromCookies();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { limit, windowSec } = getRateLimitRule("write");
+  const rate = checkRateLimit({
+    key: buildRateLimitKey({
+      scope: "write",
+      request,
+      memberId: session.memberId,
+    }),
+    limit,
+    windowSec,
+  });
+  if (!rate.ok) {
+    return NextResponse.json(
+      { error: RATE_LIMIT_ERROR_MESSAGE },
+      {
+        status: 429,
+        headers: rate.retryAfterSec
+          ? { "Retry-After": String(rate.retryAfterSec) }
+          : undefined,
+      }
+    );
   }
 
   const body = ((await request.json().catch(() => ({}))) ??
@@ -97,9 +135,39 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const csrf = assertSameOrigin(request);
+  if (!csrf.ok) {
+    return NextResponse.json(
+      { error: CSRF_ERROR_MESSAGE },
+      { status: 403 }
+    );
+  }
+
   const session = await getSessionFromCookies();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { limit, windowSec } = getRateLimitRule("write");
+  const rate = checkRateLimit({
+    key: buildRateLimitKey({
+      scope: "write",
+      request,
+      memberId: session.memberId,
+    }),
+    limit,
+    windowSec,
+  });
+  if (!rate.ok) {
+    return NextResponse.json(
+      { error: RATE_LIMIT_ERROR_MESSAGE },
+      {
+        status: 429,
+        headers: rate.retryAfterSec
+          ? { "Retry-After": String(rate.retryAfterSec) }
+          : undefined,
+      }
+    );
   }
 
   const { id } = await params;

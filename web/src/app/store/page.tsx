@@ -7,7 +7,7 @@ import {
   ModuleKey,
   AllModuleKey,
   EXTENSION_MODULES,
-  filterEnabledModules,
+  SYSTEM_MODULES,
 } from "@/lib/modules";
 import { MODULE_METADATA } from "@/lib/module-metadata";
 import {
@@ -84,14 +84,15 @@ const FUTURE_MODULES: StoreEntry[] = [
 function buildStoreEntries(): StoreEntry[] {
   const managedEntries: StoreEntry[] = STORE_DISPLAY_ORDER.map((key) => {
     const metadata = MODULE_METADATA[key];
+    const isSystemModule = SYSTEM_MODULES.includes(key);
     return {
       key,
       title: moduleLabelMap.get(key) ?? "Knot Module",
       description: metadata?.description ?? "",
       badge: metadata?.badge,
-      state: key === "store" ? "system" : "available",
-      toggleable: key !== "store",
-      note: key === "store" ? "システムモジュールのため常時オン" : undefined,
+      state: isSystemModule ? "system" : "available",
+      toggleable: !isSystemModule,
+      note: isSystemModule ? "システムモジュールのため常時オン" : undefined,
     };
   });
 

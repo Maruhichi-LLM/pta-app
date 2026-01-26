@@ -80,7 +80,7 @@ async function main() {
     data: {
       groupId: group.id,
       displayName: 'Demo Owner',
-        role: "管理者",
+        role: "ADMIN",
         email: "demo-admin@example.com",
       passwordHash: adminPasswordHash,
     },
@@ -90,7 +90,7 @@ async function main() {
     data: {
       groupId: group.id,
       displayName: 'Demo Accountant',
-        role: "会計係",
+        role: "ACCOUNTANT",
         email: "demo-accountant@example.com",
       passwordHash: accountantPasswordHash,
     },
@@ -212,13 +212,13 @@ async function main() {
       {
         groupId: group.id,
         code: "DEMO1234",
-        role: "メンバー",
+        role: "MEMBER",
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
       {
         groupId: group.id,
         code: "ACCT1234",
-        role: "会計係",
+        role: "ACCOUNTANT",
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
     ],

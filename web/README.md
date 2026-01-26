@@ -35,6 +35,29 @@ npx prisma db seed
 - `メンバー` : 一般メンバー（招待コード `DEMO1234` で参加）
 - 会計係用招待コード `ACCT1234`、一般メンバー用 `DEMO1234`
 
+## セキュリティ設定と手動確認
+
+- `APP_ORIGIN` で許可するオリジンを指定します（例: `http://localhost:3000`）。未設定の場合は開発モードのみ `http://localhost:3000` が許可されます。
+- レート制限は環境変数で調整できます。
+  - `RATE_LIMIT_WINDOW_SECONDS`（デフォルト60秒）
+  - `RATE_LIMIT_LOGIN_LIMIT`（ログイン系デフォルト5回/60秒）
+  - `RATE_LIMIT_WRITE_LIMIT`（その他のPOST/PATCH/DELETEはデフォルト20回/60秒）
+
+### 手動確認の目安
+1. **通常操作**: ブラウザからログインし、経費登録やイベント出欠、文書アップロードなど主要な書き込み操作が完了することを確認します。
+2. **レート制限**: 例えばログインAPIを短時間に叩き、6回目以降で `429` が返ることを確認します。
+   ```bash
+   for i in {1..6}; do curl -i -X POST http://localhost:3000/api/login -H \"Content-Type: application/json\" -d '{\"email\":\"demo-admin@example.com\",\"password\":\"wrong\"}'; done
+   ```
+3. **CSRF**: 悪意のあるオリジンを模して `Origin: https://evil.example` を付けてPOSTし、`403` が返ることを確認します。
+   ```bash
+   curl -i -X POST http://localhost:3000/api/ledger \
+     -H \"Origin: https://evil.example\" \
+     -H \"Content-Type: application/json\" \
+     --cookie \"pta_session=...\" \
+     -d '{\"title\":\"test\",\"amount\":1000,\"accountId\":1,\"transactionDate\":\"2024-01-01\"}'
+   ```
+
 ## Getting Started
 
 First, run the development server:

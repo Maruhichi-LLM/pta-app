@@ -5,6 +5,14 @@ import { isPlatformAdminEmail } from "@/lib/admin";
 import { DocumentCategory } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { saveUploadedDocumentFile } from "@/lib/document-storage";
+import {
+  assertSameOrigin,
+  CSRF_ERROR_MESSAGE,
+  RATE_LIMIT_ERROR_MESSAGE,
+  checkRateLimit,
+  getRateLimitRule,
+  buildRateLimitKey,
+} from "@/lib/security";
 
 const DOCUMENT_CATEGORIES = Object.values(DocumentCategory);
 
@@ -98,9 +106,39 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const csrf = assertSameOrigin(request);
+  if (!csrf.ok) {
+    return NextResponse.json(
+      { error: CSRF_ERROR_MESSAGE },
+      { status: 403 }
+    );
+  }
+
   const session = await getSessionFromCookies();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { limit, windowSec } = getRateLimitRule("write");
+  const rate = checkRateLimit({
+    key: buildRateLimitKey({
+      scope: "write",
+      request,
+      memberId: session.memberId,
+    }),
+    limit,
+    windowSec,
+  });
+  if (!rate.ok) {
+    return NextResponse.json(
+      { error: RATE_LIMIT_ERROR_MESSAGE },
+      {
+        status: 429,
+        headers: rate.retryAfterSec
+          ? { "Retry-After": String(rate.retryAfterSec) }
+          : undefined,
+      }
+    );
   }
   const { isAdmin, memberGroupId } = await loadRequester(
     session.groupId,

@@ -4,6 +4,14 @@ import { ThreadSourceType, ThreadStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSessionFromCookies } from "@/lib/session";
 import { ensureFreeThread, findExistingThreadForSource } from "@/lib/chat";
+import {
+  assertSameOrigin,
+  CSRF_ERROR_MESSAGE,
+  RATE_LIMIT_ERROR_MESSAGE,
+  checkRateLimit,
+  getRateLimitRule,
+  buildRateLimitKey,
+} from "@/lib/security";
 
 const SOURCE_TYPE_LABELS: Record<ThreadSourceType, string> = {
   TODO: "ToDo",
@@ -57,12 +65,42 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ orgId: string }> }
 ) {
+  const csrf = assertSameOrigin(request);
+  if (!csrf.ok) {
+    return NextResponse.json(
+      { error: CSRF_ERROR_MESSAGE },
+      { status: 403 }
+    );
+  }
+
   const { orgId: orgIdParam } = await params;
   const context = await requireOrgSession(orgIdParam);
   if ("error" in context) {
     return context.error;
   }
-  const { orgId } = context;
+  const { orgId, session } = context;
+
+  const { limit, windowSec } = getRateLimitRule("write");
+  const rate = checkRateLimit({
+    key: buildRateLimitKey({
+      scope: "write",
+      request,
+      memberId: session.memberId,
+    }),
+    limit,
+    windowSec,
+  });
+  if (!rate.ok) {
+    return NextResponse.json(
+      { error: RATE_LIMIT_ERROR_MESSAGE },
+      {
+        status: 429,
+        headers: rate.retryAfterSec
+          ? { "Retry-After": String(rate.retryAfterSec) }
+          : undefined,
+      }
+    );
+  }
   const payload = (await request.json().catch(() => ({}))) as ThreadPayload;
   const sourceType = payload.sourceType as ThreadSourceType | undefined;
   if (

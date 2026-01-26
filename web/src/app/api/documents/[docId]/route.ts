@@ -9,6 +9,14 @@ import {
   getDocumentStorageBaseDir,
   saveUploadedDocumentFile,
 } from "@/lib/document-storage";
+import {
+  assertSameOrigin,
+  CSRF_ERROR_MESSAGE,
+  RATE_LIMIT_ERROR_MESSAGE,
+  checkRateLimit,
+  getRateLimitRule,
+  buildRateLimitKey,
+} from "@/lib/security";
 
 async function loadDocument(docId: number) {
   return prisma.document.findUnique({
@@ -128,9 +136,39 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ docId: string }> }
 ) {
+  const csrf = assertSameOrigin(request);
+  if (!csrf.ok) {
+    return NextResponse.json(
+      { error: CSRF_ERROR_MESSAGE },
+      { status: 403 }
+    );
+  }
+
   const session = await getSessionFromCookies();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { limit, windowSec } = getRateLimitRule("write");
+  const rate = checkRateLimit({
+    key: buildRateLimitKey({
+      scope: "write",
+      request,
+      memberId: session.memberId,
+    }),
+    limit,
+    windowSec,
+  });
+  if (!rate.ok) {
+    return NextResponse.json(
+      { error: RATE_LIMIT_ERROR_MESSAGE },
+      {
+        status: 429,
+        headers: rate.retryAfterSec
+          ? { "Retry-After": String(rate.retryAfterSec) }
+          : undefined,
+      }
+    );
   }
   const { docId: docIdString } = await params;
   const docId = Number(docIdString);
@@ -194,6 +232,117 @@ export async function POST(
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "保存に失敗しました。" },
+      { status: 400 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ docId: string }> }
+) {
+  const csrf = assertSameOrigin(request);
+  if (!csrf.ok) {
+    return NextResponse.json(
+      { error: CSRF_ERROR_MESSAGE },
+      { status: 403 }
+    );
+  }
+
+  const session = await getSessionFromCookies();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // 団体管理者またはプラットフォーム管理者のみ削除可能
+  const member = await prisma.member.findUnique({
+    where: { id: session.memberId },
+    select: { email: true, role: true, groupId: true },
+  });
+
+  const isPlatformAdmin = isPlatformAdminEmail(member?.email ?? null);
+  const isGroupAdmin = member?.role === "ADMIN" && member?.groupId === session.groupId;
+
+  if (!isPlatformAdmin && !isGroupAdmin) {
+    return NextResponse.json(
+      { error: "管理者のみ削除できます。" },
+      { status: 403 }
+    );
+  }
+
+  const { limit, windowSec } = getRateLimitRule("write");
+  const rate = checkRateLimit({
+    key: buildRateLimitKey({
+      scope: "write",
+      request,
+      memberId: session.memberId,
+    }),
+    limit,
+    windowSec,
+  });
+  if (!rate.ok) {
+    return NextResponse.json(
+      { error: RATE_LIMIT_ERROR_MESSAGE },
+      {
+        status: 429,
+        headers: rate.retryAfterSec
+          ? { "Retry-After": String(rate.retryAfterSec) }
+          : undefined,
+      }
+    );
+  }
+
+  const { docId: docIdString } = await params;
+  const docId = Number(docIdString);
+  if (!Number.isInteger(docId)) {
+    return NextResponse.json({ error: "Invalid document id" }, { status: 400 });
+  }
+
+  const document = await prisma.document.findUnique({
+    where: { id: docId },
+    include: {
+      versions: true,
+    },
+  });
+
+  if (!document) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  try {
+    // 物理ファイルを削除
+    const baseDir = getDocumentStorageBaseDir();
+    for (const version of document.versions) {
+      const filePath = path.join(baseDir, version.storedPath);
+      try {
+        await fs.unlink(filePath);
+      } catch {
+        // ファイルが既に存在しない場合はスキップ
+      }
+    }
+
+    // ディレクトリも削除（空の場合）
+    const docDir = path.join(baseDir, String(document.groupId), String(document.id));
+    try {
+      await fs.rmdir(docDir, { recursive: true });
+    } catch {
+      // ディレクトリ削除に失敗してもDBは削除
+    }
+
+    // DBからバージョンとドキュメントを削除
+    await prisma.documentVersion.deleteMany({
+      where: { documentId: docId },
+    });
+
+    await prisma.document.delete({
+      where: { id: docId },
+    });
+
+    revalidatePath("/documents");
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "削除に失敗しました。" },
       { status: 400 }
     );
   }

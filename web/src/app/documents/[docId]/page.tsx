@@ -5,6 +5,7 @@ import { getSessionFromCookies } from "@/lib/session";
 import { isPlatformAdminEmail } from "@/lib/admin";
 import { DocumentCategory, ThreadSourceType } from "@prisma/client";
 import { RelatedThreadButton } from "@/components/related-thread-button";
+import { DocumentVersionUploadForm } from "@/components/document-version-upload-form";
 
 const CATEGORY_LABELS: Record<DocumentCategory, string> = {
   POLICY: "規程・方針",
@@ -15,7 +16,7 @@ const CATEGORY_LABELS: Record<DocumentCategory, string> = {
 };
 
 type DocumentDetailProps = {
-  params: { docId: string };
+  params: Promise<{ docId: string }>;
 };
 
 export default async function DocumentDetailPage({ params }: DocumentDetailProps) {
@@ -23,7 +24,8 @@ export default async function DocumentDetailPage({ params }: DocumentDetailProps
   if (!session) {
     redirect("/join");
   }
-  const docId = Number(params.docId);
+  const resolvedParams = await params;
+  const docId = Number(resolvedParams.docId);
   if (!Number.isInteger(docId)) {
     notFound();
   }
@@ -158,30 +160,7 @@ export default async function DocumentDetailPage({ params }: DocumentDetailProps
           <p className="mt-2 text-sm text-zinc-500">
             既存ファイルは上書きされません。版が追加され履歴が残ります。
           </p>
-          <form
-            action={`/api/documents/${document.id}`}
-            method="post"
-            encType="multipart/form-data"
-            className="mt-4 space-y-3"
-          >
-            <label className="block text-sm text-zinc-600">
-              ファイル（20MBまで）
-              <input
-                type="file"
-                name="file"
-                className="mt-1 w-full rounded-lg border border-dashed border-zinc-300 px-3 py-2"
-                required
-              />
-            </label>
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
-              >
-                版を追加する
-              </button>
-            </div>
-          </form>
+          <DocumentVersionUploadForm documentId={document.id} />
         </section>
       </div>
     </div>
