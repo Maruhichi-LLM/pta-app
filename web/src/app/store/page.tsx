@@ -26,6 +26,7 @@ const STORE_DISPLAY_ORDER: ModuleKey[] = [
   "calendar",
   "accounting",
   "document",
+  "export",
   "management",
   "store",
 ];
@@ -40,7 +41,7 @@ const EXTENSION_MODULE_METADATA: Record<
   }
 > = {
   "event-budget": {
-    title: "Event Budget Extension",
+    title: "Knot Event Budget Extension",
     description:
       "イベントごとの収入・支出を個別に管理し、本会計に取り込む拡張機能です。",
     badge: "Event / Extension",
@@ -58,16 +59,6 @@ const FUTURE_MODULES: StoreEntry[] = [
     state: "comingSoon",
     toggleable: false,
     note: "βテスト準備中です",
-  },
-  {
-    key: undefined,
-    title: "Knot Export",
-    description:
-      "団体データをCSV/PDFで一括出力し、監査・提出業務を効率化します。",
-    badge: "エクスポート / Archive",
-    state: "beta",
-    toggleable: false,
-    note: "β版を順次公開予定",
   },
   {
     key: undefined,

@@ -3,7 +3,8 @@ import { getSessionFromCookies } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import {
   MODULE_LINKS,
-  ModuleKey,
+  AllModuleKey,
+  EXTENSION_MODULES,
   filterEnabledModules,
 } from "@/lib/modules";
 import { MODULE_METADATA } from "@/lib/module-metadata";
@@ -26,27 +27,56 @@ const VARIANT_STYLES = {
   },
 } as const;
 
+function isExtensionModuleKey(
+  key: string
+): key is (typeof EXTENSION_MODULES)[number] {
+  return EXTENSION_MODULES.includes(
+    key as (typeof EXTENSION_MODULES)[number]
+  );
+}
+
 export default async function RootPage() {
   const session = await getSessionFromCookies();
-  let enabled = MODULE_LINKS.map((module) => module.key);
+  let enabledCore = MODULE_LINKS.map((module) => module.key);
+  let enabledExtensions: Array<(typeof EXTENSION_MODULES)[number]> = [];
   if (session) {
     const group = await prisma.group.findUnique({
       where: { id: session.groupId },
       select: { enabledModules: true },
     });
-    enabled = filterEnabledModules(group?.enabledModules).map(
+    const groupEnabled = group?.enabledModules ?? [];
+    enabledCore = filterEnabledModules(groupEnabled).map(
       (module) => module.key
     );
+    enabledExtensions = groupEnabled.filter(isExtensionModuleKey);
   }
+  const enabledSet = new Set<AllModuleKey>([
+    ...enabledCore,
+    ...enabledExtensions,
+  ]);
+
+  // 拡張モジュール用の情報を追加
+  const extensionModuleInfo = {
+    "event-budget": {
+      key: "event-budget" as const,
+      label: "Knot Event Budget Extension",
+      href: "/events/budget",
+    },
+  };
 
   const moduleMap = new Map(MODULE_LINKS.map((module) => [module.key, module]));
-  const moduleOrder: Array<ModuleKey> = [
+  // 拡張モジュールもマップに追加
+  moduleMap.set("event-budget", extensionModuleInfo["event-budget"]);
+
+  const moduleOrder: Array<AllModuleKey> = [
     "chat",
     "todo",
     "event",
     "calendar",
     "accounting",
     "document",
+    "export",
+    "event-budget",
     "management",
     "store",
   ];
@@ -92,7 +122,9 @@ export default async function RootPage() {
               const moduleLink = moduleMap.get(key);
               if (!moduleLink) return null;
               const metadata = MODULE_METADATA[moduleLink.key];
-              const isEnabled = enabled.includes(moduleLink.key);
+              const isEnabled = enabledSet.has(
+                moduleLink.key as AllModuleKey
+              );
               const variant = metadata?.variant ?? "default";
               const variantStyles = VARIANT_STYLES[variant];
               const targetHref =

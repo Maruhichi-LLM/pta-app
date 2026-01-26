@@ -1,4 +1,4 @@
-import { ModuleKey } from "./modules";
+import { ModuleKey, AllModuleKey } from "./modules";
 
 type ModuleVariant = "default" | "system";
 
@@ -8,7 +8,7 @@ export type ModuleMetadata = {
   variant?: ModuleVariant;
 };
 
-export const MODULE_METADATA: Record<ModuleKey, ModuleMetadata> = {
+export const MODULE_METADATA: Record<AllModuleKey, ModuleMetadata> = {
   event: {
     description: "行事の登録とメンバーの出欠を一つに。",
     badge: "イベント / Planning",
@@ -47,5 +47,15 @@ export const MODULE_METADATA: Record<ModuleKey, ModuleMetadata> = {
     description:
       "団体の確定版ドキュメントを保管し、年度引き継ぎをシンプルにするモジュールです。",
     badge: "ドキュメント / Archive",
+  },
+  export: {
+    description:
+      "イベント出欠表や収支計算書など、各モジュールのデータをCSV・PDFで出力できます。",
+    badge: "エクスポート / Export",
+  },
+  "event-budget": {
+    description:
+      "イベントごとの収入・支出を個別に管理し、本会計に取り込む拡張機能です。",
+    badge: "Event / Extension",
   },
 };
