@@ -64,11 +64,18 @@ export function FiscalYearCloseSection({
 
   // 会計年度の開始日と終了日を計算
   const startDate = new Date(fiscalYear, fiscalYearStartMonth - 1, 1);
-  const endDate = new Date(fiscalYear + 1, fiscalYearEndMonth - 1, 0); // 月末
-  endDate.setHours(23, 59, 59, 999);
+  const endDate = new Date(fiscalYear + 1, fiscalYearEndMonth, 0); // 月末
 
-  const startDateString = startDate.toISOString().split("T")[0];
-  const endDateString = endDate.toISOString().split("T")[0];
+  // ローカル日時をそのまま文字列にする（UTC変換を避ける）
+  const formatDateString = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
+
+  const startDateString = formatDateString(startDate);
+  const endDateString = formatDateString(endDate);
 
   async function handleCreateDraft() {
     setError(null);
@@ -161,7 +168,10 @@ export function FiscalYearCloseSection({
 
       const result = (await response.json()) as { fiscalYearClose: FiscalYearClose };
       setFiscalYearClose(result.fiscalYearClose);
-      router.refresh();
+
+      // 確定成功後、次年度に切り替える
+      const nextFiscalYear = fiscalYear + 1;
+      router.push(`/accounting?fiscalYear=${nextFiscalYear}&section=fiscal-year-close`);
     } catch {
       setError("通信エラーが発生しました。");
     } finally {

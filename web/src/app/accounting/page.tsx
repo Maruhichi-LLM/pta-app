@@ -311,7 +311,7 @@ async function fetchLedgerData(groupId: number, memberId: number, targetFiscalYe
 }
 
 type PageProps = {
-  searchParams?: Record<string, string | string[]>;
+  searchParams?: Promise<Record<string, string | string[]>>;
 };
 
 export default async function LedgerPage({ searchParams }: PageProps) {
@@ -322,6 +322,8 @@ export default async function LedgerPage({ searchParams }: PageProps) {
 
   await ensureModuleEnabled(session.groupId, "accounting");
 
+  const resolvedParams = (await searchParams) ?? {};
+
   // First get basic group info to determine fiscal year
   const group = await prisma.group.findUnique({ where: { id: session.groupId } });
   if (!group) {
@@ -330,7 +332,7 @@ export default async function LedgerPage({ searchParams }: PageProps) {
 
   const defaultFiscalYear = resolveFiscalYear(new Date(), group.fiscalYearStartMonth ?? 4);
   const requestedFiscalYearRaw = (() => {
-    const param = searchParams?.fiscalYear ?? searchParams?.year;
+    const param = resolvedParams.fiscalYear ?? resolvedParams.year;
     return Array.isArray(param) ? param[0] : param;
   })();
   let targetFiscalYear = defaultFiscalYear;
@@ -452,6 +454,17 @@ export default async function LedgerPage({ searchParams }: PageProps) {
   const pendingCount = data.ledgers.filter((ledger) => ledger.status === "PENDING").length;
   const hasPendingItems = pendingCount > 0;
 
+  // 会計年度の期間内のLedger件数を計算
+  const fiscalYearStartDate = new Date(targetFiscalYear, setting.fiscalYearStartMonth - 1, 1);
+  const fiscalYearEndDate = new Date(targetFiscalYear + 1, setting.fiscalYearEndMonth, 0);
+  fiscalYearEndDate.setHours(23, 59, 59, 999);
+
+  const ledgersInFiscalYear = data.ledgers.filter((ledger) => {
+    const transactionDate = new Date(ledger.transactionDate);
+    return transactionDate >= fiscalYearStartDate && transactionDate <= fiscalYearEndDate;
+  });
+  const fiscalYearApprovedCount = ledgersInFiscalYear.filter((l) => l.status === "APPROVED").length;
+
   const navigationItems: Array<{
     id: string;
     label: string;
@@ -468,8 +481,8 @@ export default async function LedgerPage({ searchParams }: PageProps) {
     id: "ledger-list",
     label: "経費一覧",
     description: hasPendingItems
-      ? `承認待ち ${pendingCount}件 / 全 ${data.ledgers.length}件`
-      : `${ledgerCountLabel}の履歴`,
+      ? `承認待ち ${pendingCount}件 / ${targetFiscalYear}年度 ${fiscalYearApprovedCount}件`
+      : `${targetFiscalYear}年度 ${fiscalYearApprovedCount}件の履歴`,
     highlight: hasPendingItems,
   });
 
@@ -506,7 +519,7 @@ export default async function LedgerPage({ searchParams }: PageProps) {
   }
 
   const requestedSectionIdRaw = (() => {
-    const sectionParam = searchParams?.section;
+    const sectionParam = resolvedParams.section;
     return Array.isArray(sectionParam) ? sectionParam[0] : sectionParam;
   })();
   const availableSectionIds = new Set(navigationItems.map((item) => item.id));

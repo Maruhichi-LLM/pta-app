@@ -15,6 +15,7 @@ type Props = {
 
 export function LedgerCreateForm({ accounts }: Props) {
   const router = useRouter();
+  const [accountType, setAccountType] = useState<"EXPENSE" | "INCOME">("EXPENSE");
   const [title, setTitle] = useState("");
   const [transactionDate, setTransactionDate] = useState(
     new Date().toISOString().slice(0, 10)
@@ -29,8 +30,17 @@ export function LedgerCreateForm({ accounts }: Props) {
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
   const [receiptUploadError, setReceiptUploadError] = useState<string | null>(null);
   const receiptFileInputRef = useRef<HTMLInputElement | null>(null);
-  const hasAccounts = accounts.length > 0;
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  // 種別に応じて勘定科目をフィルタリング
+  const filteredAccounts = accounts.filter((acc) => acc.type === accountType);
+  const hasAccounts = filteredAccounts.length > 0;
+
+  // 種別が変更されたら選択中の勘定科目をリセット
+  const handleAccountTypeChange = (newType: "EXPENSE" | "INCOME") => {
+    setAccountType(newType);
+    setAccountId("");
+  };
 
   // 桁区切り用の関数（マイナス対応）
   const formatNumber = (value: string): string => {
@@ -143,7 +153,7 @@ export function LedgerCreateForm({ accounts }: Props) {
   }
 
   // 選択された勘定科目の名前を取得
-  const selectedAccount = accounts.find((acc) => acc.id === Number(accountId));
+  const selectedAccount = filteredAccounts.find((acc) => acc.id === Number(accountId));
   const selectedAccountName = selectedAccount?.name ?? "";
 
   return (
@@ -154,14 +164,16 @@ export function LedgerCreateForm({ accounts }: Props) {
       >
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="text-sm text-zinc-600">
-          日付
-          <input
-            type="date"
-            value={transactionDate}
-            onChange={(e) => setTransactionDate(e.target.value)}
+          種別
+          <select
+            value={accountType}
+            onChange={(e) => handleAccountTypeChange(e.target.value as "EXPENSE" | "INCOME")}
             required
             className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-          />
+          >
+            <option value="EXPENSE">支出</option>
+            <option value="INCOME">収入</option>
+          </select>
         </label>
         <label className="text-sm text-zinc-600">
           勘定科目
@@ -173,22 +185,12 @@ export function LedgerCreateForm({ accounts }: Props) {
             className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:bg-zinc-100"
           >
             <option value="">選択してください</option>
-            {accounts.map((account) => (
+            {filteredAccounts.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.name}
               </option>
             ))}
           </select>
-        </label>
-        <label className="text-sm text-zinc-600">
-          内容
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-            placeholder="例: 備品購入"
-            required
-          />
         </label>
         <label className="text-sm text-zinc-600">
           金額（円）
@@ -199,12 +201,31 @@ export function LedgerCreateForm({ accounts }: Props) {
             value={formatNumber(amount)}
             onChange={handleAmountChange}
             className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-            placeholder="12,000（赤伝票: -12,000）"
+            placeholder="5000"
             required
             lang="en"
           />
         </label>
+        <label className="text-sm text-zinc-600">
+          取引日
+          <input
+            type="date"
+            value={transactionDate}
+            onChange={(e) => setTransactionDate(e.target.value)}
+            required
+            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+          />
+        </label>
       </div>
+      <label className="mt-4 block text-sm text-zinc-600">
+        摘要
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+          placeholder="例: 夏祭り 会場費"
+        />
+      </label>
       <label className="mt-4 block text-sm text-zinc-600">
         証憑URL（任意）
         <input
@@ -239,7 +260,7 @@ export function LedgerCreateForm({ accounts }: Props) {
         <p className="mt-1 text-xs text-red-500">{receiptUploadError}</p>
       ) : null}
       <label className="mt-4 block text-sm text-zinc-600">
-        メモ
+        メモ（任意）
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -271,7 +292,7 @@ export function LedgerCreateForm({ accounts }: Props) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="max-w-lg w-full rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-zinc-900">
-              入出金内容の確認
+              収支を記録する
             </h3>
             <p className="mt-2 text-sm text-zinc-600">
               以下の内容で登録します。よろしいですか？
@@ -279,23 +300,28 @@ export function LedgerCreateForm({ accounts }: Props) {
 
             <dl className="mt-4 space-y-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
               <div className="flex justify-between text-sm">
-                <dt className="text-zinc-500">日付</dt>
-                <dd className="font-semibold text-zinc-900">{transactionDate}</dd>
+                <dt className="text-zinc-500">種別</dt>
+                <dd className="font-semibold text-zinc-900">
+                  {accountType === "EXPENSE" ? "支出" : "収入"}
+                </dd>
               </div>
               <div className="flex justify-between text-sm">
                 <dt className="text-zinc-500">勘定科目</dt>
                 <dd className="font-semibold text-zinc-900">{selectedAccountName}</dd>
               </div>
               <div className="flex justify-between text-sm">
-                <dt className="text-zinc-500">内容</dt>
-                <dd className="font-semibold text-zinc-900">{title || "（未入力）"}</dd>
+                <dt className="text-zinc-500">金額</dt>
+                <dd className="font-semibold text-zinc-900">
+                  {formatNumber(amount)}円
+                </dd>
               </div>
               <div className="flex justify-between text-sm">
-                <dt className="text-zinc-500">金額</dt>
-                <dd className={`font-semibold ${amount.startsWith("-") ? "text-red-600" : "text-zinc-900"}`}>
-                  {formatNumber(amount)}円
-                  {amount.startsWith("-") && <span className="ml-1 text-xs">(赤伝票)</span>}
-                </dd>
+                <dt className="text-zinc-500">取引日</dt>
+                <dd className="font-semibold text-zinc-900">{transactionDate}</dd>
+              </div>
+              <div className="flex justify-between text-sm">
+                <dt className="text-zinc-500">摘要</dt>
+                <dd className="font-semibold text-zinc-900">{title || "（未入力）"}</dd>
               </div>
               {receiptUrl && (
                 <div className="flex justify-between text-sm">
