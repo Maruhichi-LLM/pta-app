@@ -69,6 +69,7 @@ export default async function RootPage() {
     "accounting",
     "document",
     "export",
+    "approval",
     "audit",
     "management",
     "store",

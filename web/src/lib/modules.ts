@@ -11,6 +11,7 @@ export const MODULE_LINKS = [
   { key: "todo", label: "Knot ToDo", href: "/todo" },
   { key: "document", label: "Knot Document", href: "/documents" },
   { key: "export", label: "Knot Export", href: "/export" },
+  { key: "approval", label: "Knot Approval", href: "/approval" },
   { key: "audit", label: "Knot Audit", href: "/audit" },
   { key: "store", label: "Knot Store", href: "/store" },
 ] as const;

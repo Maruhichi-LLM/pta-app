@@ -53,6 +53,11 @@ export const MODULE_METADATA: Record<AllModuleKey, ModuleMetadata> = {
       "イベント出欠表や収支計算書など、各モジュールのデータをCSV・PDFで出力できます。",
     badge: "エクスポート / Export",
   },
+  approval: {
+    description:
+      "備品購入や休暇申請など、団体のあらゆる申請フローを多段階承認で管理します。",
+    badge: "承認 / Workflow",
+  },
   audit: {
     description:
       "会計・活動の監査を計画し、指摘事項や改善提案を記録できるガバナンスモジュールです。",
