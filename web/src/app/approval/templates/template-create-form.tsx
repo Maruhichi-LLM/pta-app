@@ -20,7 +20,13 @@ export function TemplateCreateForm({ routes }: { routes: RouteOption[] }) {
   if (routes.length === 0) {
     return (
       <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-        先に承認ルートを作成してください。
+        先に承認ルートを作成してください。{" "}
+        <a
+          href="/approval/routes"
+          className="font-semibold text-amber-900 underline underline-offset-2"
+        >
+          承認ルート管理へ移動
+        </a>
       </p>
     );
   }

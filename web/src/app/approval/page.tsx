@@ -39,7 +39,7 @@ export default async function ApprovalLandingPage() {
             備品購入や休暇など、団体内の申請をここで一元管理します。
           </p>
         </header>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Link
             href="/approval/templates"
             className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition hover:border-sky-200 hover:shadow"
@@ -64,6 +64,20 @@ export default async function ApprovalLandingPage() {
               申請一覧を見る →
             </p>
           </Link>
+          {isAdmin ? (
+            <Link
+              href="/approval/routes"
+              className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition hover:border-sky-200 hover:shadow"
+            >
+              <h2 className="text-lg font-semibold text-zinc-900">承認ルート</h2>
+              <p className="mt-1 text-sm text-zinc-600">
+                役割ごとの承認ステップを作成し、テンプレートから使い回せるようにします。
+              </p>
+              <p className="mt-4 text-xs font-semibold text-sky-600">
+                ルートを設定する →
+              </p>
+            </Link>
+          ) : null}
         </div>
         {!isAdmin ? (
           <p className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-4 text-sm text-zinc-600">

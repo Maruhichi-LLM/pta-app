@@ -9,6 +9,30 @@ type StepDraft = {
   conditions?: string;
 };
 
+const SAMPLE_ROUTES = [
+  {
+    label: "備品購入（1万円未満）",
+    description: "会計担当のみで確認する少額備品フロー。",
+    steps: [{ approverRole: "ACCOUNTANT", requireAll: false }],
+  },
+  {
+    label: "備品購入（1万円以上）",
+    description: "会計担当→管理者の2段階承認で高額備品を管理。",
+    steps: [
+      { approverRole: "ACCOUNTANT", requireAll: false },
+      { approverRole: "ADMIN", requireAll: true },
+    ],
+  },
+  {
+    label: "休暇・出張申請",
+    description: "チームリーダーと人事担当の連携が必要な申請。",
+    steps: [
+      { approverRole: "LEAD", requireAll: false },
+      { approverRole: "HR", requireAll: false },
+    ],
+  },
+] as const;
+
 export function RouteCreateForm() {
   const router = useRouter();
   const [name, setName] = useState("承認ルート");
@@ -17,6 +41,18 @@ export function RouteCreateForm() {
   ]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const applySample = (sample: (typeof SAMPLE_ROUTES)[number]) => {
+    setName(sample.label);
+    setSteps(
+      sample.steps.map((step) => ({
+        approverRole: step.approverRole,
+        requireAll: step.requireAll,
+        conditions: "",
+      }))
+    );
+    setError(null);
+  };
 
   const updateStep = (index: number, patch: Partial<StepDraft>) => {
     setSteps((prev) =>
@@ -29,7 +65,10 @@ export function RouteCreateForm() {
   };
 
   const addStep = () => {
-    setSteps((prev) => [...prev, { approverRole: "MEMBER", requireAll: true }]);
+    setSteps((prev) => [
+      ...prev,
+      { approverRole: "MEMBER", requireAll: true },
+    ]);
   };
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -47,9 +86,10 @@ export function RouteCreateForm() {
         steps: steps.map((step) => ({
           approverRole: step.approverRole.trim(),
           requireAll: step.requireAll,
-          conditions: step.conditions && step.conditions.trim().length > 0
-            ? JSON.parse(step.conditions)
-            : null,
+          conditions:
+            step.conditions && step.conditions.trim().length > 0
+              ? JSON.parse(step.conditions)
+              : null,
         })),
       };
 
@@ -77,6 +117,30 @@ export function RouteCreateForm() {
       onSubmit={handleSubmit}
       className="space-y-4 rounded-2xl border border-dashed border-zinc-300 bg-white/70 p-4"
     >
+      <div className="rounded-xl border border-zinc-200 bg-white/90 p-4">
+        <p className="text-sm font-semibold text-zinc-800">サンプルから始める</p>
+        <p className="mt-1 text-xs text-zinc-500">
+          迷ったら下のサンプルをクリックすると、ルート名とステップが自動入力されます。
+        </p>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          {SAMPLE_ROUTES.map((sample) => (
+            <div
+              key={sample.label}
+              className="flex flex-col rounded-lg border border-zinc-200 bg-white p-3 text-xs text-zinc-600"
+            >
+              <p className="text-sm font-semibold text-zinc-900">{sample.label}</p>
+              <p className="mt-1 flex-1 leading-relaxed">{sample.description}</p>
+              <button
+                type="button"
+                onClick={() => applySample(sample)}
+                className="mt-3 rounded-full border border-sky-200 px-3 py-1 text-xs font-semibold text-sky-700 transition hover:border-sky-400 hover:text-sky-800"
+              >
+                このサンプルを使う
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
       <div>
         <label className="text-sm font-medium text-zinc-700">ルート名</label>
         <input
@@ -126,6 +190,14 @@ export function RouteCreateForm() {
                 className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-1 text-xs"
                 placeholder='{"minAmount":10000}'
               />
+              <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
+                例:{" "}
+                <code className="rounded bg-white/70 px-1 py-0.5">
+                  {"{\"minAmount\":10000}"}
+                </code>{" "}
+                のように記入すると、テンプレートで入力された値と照合して条件分岐できます。条件を使わない場
+                合は空欄のままで問題ありません。
+              </p>
             </label>
             {steps.length > 1 ? (
               <button
