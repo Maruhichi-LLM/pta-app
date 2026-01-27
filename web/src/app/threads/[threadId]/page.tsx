@@ -206,8 +206,8 @@ export default async function ThreadDetailPage({ params, searchParams }: PagePro
                       Number.isInteger(focusedMessageId) &&
                       focusedMessageId === message.id;
                     const bubbleClasses = isOwn
-                      ? "bg-sky-600 text-white border-sky-500"
-                      : "bg-white text-zinc-800 border-zinc-100";
+                      ? "bg-zinc-50 text-zinc-900 border-zinc-200"
+                      : "bg-white text-zinc-800 border-zinc-200";
                     return (
                       <div
                         key={message.id}
@@ -224,7 +224,7 @@ export default async function ThreadDetailPage({ params, searchParams }: PagePro
                           <div className="flex items-baseline justify-between gap-3">
                             <span
                               className={`text-sm font-semibold ${
-                                isOwn ? "text-white" : "text-zinc-900"
+                                isOwn ? "text-zinc-900" : "text-zinc-900"
                               }`}
                             >
                               {message.author.displayName}
@@ -232,7 +232,7 @@ export default async function ThreadDetailPage({ params, searchParams }: PagePro
                             <time
                               dateTime={message.createdAt.toISOString()}
                               className={`text-xs ${
-                                isOwn ? "text-white/70" : "text-zinc-400"
+                                isOwn ? "text-zinc-500" : "text-zinc-400"
                               }`}
                             >
                               {formatter.format(message.createdAt)}
@@ -240,7 +240,7 @@ export default async function ThreadDetailPage({ params, searchParams }: PagePro
                           </div>
                           <p
                             className={`mt-2 whitespace-pre-wrap break-words text-[15px] leading-relaxed ${
-                              isOwn ? "text-white" : "text-zinc-800"
+                              isOwn ? "text-zinc-900" : "text-zinc-800"
                             }`}
                           >
                             <MessageWithMentions text={message.body} isOwn={isOwn} />
