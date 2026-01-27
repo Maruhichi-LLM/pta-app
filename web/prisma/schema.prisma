@@ -396,6 +396,7 @@ model ChatThread {
   documents    Document[]    @relation("DocumentThread")
   auditLogs    AuditLog[]    @relation("AuditLogThread")
   votings      Voting[]      @relation("VotingThread")
+  sourceVotings Voting[]     @relation("VotingSourceThread")
 
   @@index([groupId, status])
   @@index([groupId, sourceType, sourceId])
@@ -410,6 +411,9 @@ model ChatMessage {
   authorId  Int
   author    Member   @relation(fields: [authorId], references: [id])
   body      String
+  votingId  Int?
+  voting    Voting?  @relation("VotingCardMessage", fields: [votingId], references: [id])
+  sourceVotings Voting[] @relation("VotingSourceMessage")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   todoItems TodoItem[]
@@ -436,10 +440,16 @@ model Voting {
   results           Json?
   threadId          Int?
   thread            ChatThread?   @relation("VotingThread", fields: [threadId], references: [id])
+  sourceThreadId    Int?
+  sourceThread      ChatThread?   @relation("VotingSourceThread", fields: [sourceThreadId], references: [id])
+  sourceChatMessageId Int?
+  sourceChatMessage ChatMessage?  @relation("VotingSourceMessage", fields: [sourceChatMessageId], references: [id])
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   votes             VotingVote[]
   comments          VotingComment[]
+  todoItems         TodoItem[]    @relation("TodoFromVoting")
+  cardMessages      ChatMessage[] @relation("VotingCardMessage")
 
   @@index([groupId, status])
 }
@@ -479,6 +489,8 @@ model TodoItem {
   status               TodoStatus @default(TODO)
   dueDate              DateTime?
   sourceThreadId       Int?
+  sourceVotingId       Int?
+  sourceVoting         Voting?    @relation("TodoFromVoting", fields: [sourceVotingId], references: [id])
   sourceChatMessageId  Int?       @unique
   sourceChatMessage    ChatMessage? @relation(fields: [sourceChatMessageId], references: [id])
   sourceThread         ChatThread? @relation(fields: [sourceThreadId], references: [id])

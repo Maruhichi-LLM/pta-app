@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionFromCookies } from "@/lib/session";
 import { ensureModuleEnabled } from "@/lib/modules";
 import { buildVoteHash } from "@/lib/voting";
+import { ROLE_ADMIN } from "@/lib/roles";
 
 async function closeIfNeeded(votingId: number, groupId: number) {
   const voting = await prisma.voting.findFirst({
@@ -86,6 +87,14 @@ export async function GET(
     );
   }
 
+  const member = await prisma.member.findUnique({
+    where: { id: session.memberId },
+    select: { role: true },
+  });
+  const canManage =
+    member?.role === ROLE_ADMIN ||
+    voting.createdByMemberId === session.memberId;
+
   let hasVoted = false;
   try {
     const voteHash = buildVoteHash(votingId, session.memberId);
@@ -110,5 +119,6 @@ export async function GET(
     voting,
     comments: voting.comments,
     hasVoted,
+    canManage,
   });
 }

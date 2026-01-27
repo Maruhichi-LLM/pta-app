@@ -6,6 +6,7 @@ import { getSessionFromCookies } from "@/lib/session";
 import { ensureModuleEnabled } from "@/lib/modules";
 import { ChatInput } from "@/components/chat-input";
 import { ChatMessageActions } from "@/components/chat-message-actions";
+import { VotingCard } from "@/components/voting-card";
 
 const SOURCE_TYPE_LABELS: Record<ThreadSourceType, string> = {
   TODO: "ToDo",
@@ -91,7 +92,8 @@ export default async function ThreadDetailPage({ params, searchParams }: PagePro
     redirect("/chat");
   }
 
-  const [todos, members] = await Promise.all([
+  const messageIds = thread.messages.map((message) => message.id);
+  const [todos, members, sourceVotings] = await Promise.all([
     prisma.todoItem.findMany({
       where: { groupId: session.groupId, sourceThreadId: thread.id },
       orderBy: { createdAt: "desc" },
@@ -111,7 +113,20 @@ export default async function ThreadDetailPage({ params, searchParams }: PagePro
         role: true,
       },
     }),
+    prisma.voting.findMany({
+      where: {
+        groupId: session.groupId,
+        sourceChatMessageId: { in: messageIds },
+      },
+      select: { id: true, sourceChatMessageId: true },
+    }),
   ]);
+  const sourceVotingMap = new Map<number, number>();
+  sourceVotings.forEach((voting) => {
+    if (voting.sourceChatMessageId) {
+      sourceVotingMap.set(voting.sourceChatMessageId, voting.id);
+    }
+  });
 
   const focusedMessageId = Number(resolvedSearchParams?.message ?? "");
   const sourceLink = resolveSourceLink(thread.sourceType, thread.sourceId);
@@ -239,24 +254,40 @@ export default async function ThreadDetailPage({ params, searchParams }: PagePro
                               {formatter.format(message.createdAt)}
                             </time>
                           </div>
-                          <p
-                            className={`mt-2 whitespace-pre-wrap break-words text-[15px] leading-relaxed ${
-                              isOwn ? "text-zinc-900" : "text-zinc-800"
-                            }`}
-                          >
-                            <MessageWithMentions text={message.body} isOwn={isOwn} />
-                          </p>
-                          <div className={`mt-3 flex ${isOwn ? "justify-end" : "justify-start"}`}>
-                            <ChatMessageActions
-                              menuAlign={isOwn ? "right" : "left"}
-                              messageId={message.id}
-                              convertedTargets={{
-                                todo: message.todoItems.length > 0,
-                                accounting: message.ledgerEntries.length > 0,
-                                document: message.documents.length > 0,
-                              }}
-                            />
-                          </div>
+                          {message.votingId ? (
+                            <div className="mt-4">
+                              <VotingCard votingId={message.votingId} />
+                            </div>
+                          ) : (
+                            <>
+                              <p
+                                className={`mt-2 whitespace-pre-wrap break-words text-[15px] leading-relaxed ${
+                                  isOwn ? "text-zinc-900" : "text-zinc-800"
+                                }`}
+                              >
+                                <MessageWithMentions
+                                  text={message.body}
+                                  isOwn={isOwn}
+                                />
+                              </p>
+                              <div
+                                className={`mt-3 flex ${isOwn ? "justify-end" : "justify-start"}`}
+                              >
+                                <ChatMessageActions
+                                  menuAlign={isOwn ? "right" : "left"}
+                                  messageId={message.id}
+                                  messageBody={message.body}
+                                  threadId={thread.id}
+                                  convertedTargets={{
+                                    todo: message.todoItems.length > 0,
+                                    accounting: message.ledgerEntries.length > 0,
+                                    document: message.documents.length > 0,
+                                    voting: sourceVotingMap.has(message.id),
+                                  }}
+                                />
+                              </div>
+                            </>
+                          )}
                         </article>
                       </div>
                     );

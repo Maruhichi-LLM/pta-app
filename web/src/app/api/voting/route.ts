@@ -23,6 +23,8 @@ type CreateVotingRequest = {
   description?: string | null;
   options?: unknown;
   deadlineAt?: string | null;
+  sourceThreadId?: number | string | null;
+  sourceChatMessageId?: number | string | null;
 };
 
 export async function GET() {
@@ -135,19 +137,91 @@ export async function POST(request: Request) {
     deadlineAt = parsed;
   }
 
-  const voting = await prisma.voting.create({
-    data: {
-      groupId: session.groupId,
-      createdByMemberId: session.memberId,
-      title,
-      description: descriptionRaw || null,
-      options,
-      deadlineAt,
-      status: VotingStatus.OPEN,
-    },
+  const sourceThreadIdRaw = payload.sourceThreadId;
+  const sourceThreadId = Number(sourceThreadIdRaw);
+  const resolvedSourceThreadId =
+    Number.isInteger(sourceThreadId) && sourceThreadId > 0
+      ? sourceThreadId
+      : null;
+
+  const sourceChatMessageIdRaw = payload.sourceChatMessageId;
+  const sourceChatMessageId = Number(sourceChatMessageIdRaw);
+  const resolvedSourceChatMessageId =
+    Number.isInteger(sourceChatMessageId) && sourceChatMessageId > 0
+      ? sourceChatMessageId
+      : null;
+
+  let sourceThread = null;
+  if (resolvedSourceThreadId) {
+    await ensureModuleEnabled(session.groupId, "chat");
+    sourceThread = await prisma.chatThread.findFirst({
+      where: { id: resolvedSourceThreadId, groupId: session.groupId },
+      select: { id: true },
+    });
+    if (!sourceThread) {
+      return NextResponse.json(
+        { error: "元のチャットスレッドが見つかりません。" },
+        { status: 404 }
+      );
+    }
+  }
+
+  let sourceMessage = null;
+  if (resolvedSourceChatMessageId) {
+    sourceMessage = await prisma.chatMessage.findFirst({
+      where: { id: resolvedSourceChatMessageId, groupId: session.groupId },
+      select: { id: true, threadId: true },
+    });
+    if (!sourceMessage) {
+      return NextResponse.json(
+        { error: "元のチャットメッセージが見つかりません。" },
+        { status: 404 }
+      );
+    }
+  }
+
+  if (sourceThread && sourceMessage && sourceMessage.threadId !== sourceThread.id) {
+    return NextResponse.json(
+      { error: "元のチャット情報が一致しません。" },
+      { status: 400 }
+    );
+  }
+
+  const [voting, cardMessage] = await prisma.$transaction(async (tx) => {
+    const createdVoting = await tx.voting.create({
+      data: {
+        groupId: session.groupId,
+        createdByMemberId: session.memberId,
+        title,
+        description: descriptionRaw || null,
+        options,
+        deadlineAt,
+        status: VotingStatus.OPEN,
+        sourceThreadId: sourceThread?.id ?? null,
+        sourceChatMessageId: sourceMessage?.id ?? null,
+      },
+    });
+
+    let createdCardMessage = null;
+    if (sourceThread) {
+      createdCardMessage = await tx.chatMessage.create({
+        data: {
+          threadId: sourceThread.id,
+          groupId: session.groupId,
+          authorId: session.memberId,
+          body: `【投票】${title}`,
+          votingId: createdVoting.id,
+        },
+      });
+    }
+
+    return [createdVoting, createdCardMessage] as const;
   });
 
   revalidatePath("/voting");
+  if (sourceThread) {
+    revalidatePath(`/threads/${sourceThread.id}`);
+  }
 
-  return NextResponse.json({ voting });
+  return NextResponse.json({ voting, cardMessageId: cardMessage?.id ?? null });
 }

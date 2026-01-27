@@ -4,18 +4,60 @@ CREATE TYPE "VotingStatus" AS ENUM ('OPEN', 'CLOSED');
 -- AlterEnum
 ALTER TYPE "ThreadSourceType" ADD VALUE 'VOTING';
 
--- DropForeignKey
-ALTER TABLE "AuditFinding" DROP CONSTRAINT "AuditFinding_createdByMemberId_fkey";
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.table_constraints
+    WHERE constraint_name = 'AuditFinding_createdByMemberId_fkey'
+  ) THEN
+    EXECUTE 'ALTER TABLE "AuditFinding" DROP CONSTRAINT "AuditFinding_createdByMemberId_fkey"';
+  END IF;
+END $$;
 
--- AlterTable
-ALTER TABLE "AuditFinding" ALTER COLUMN "updatedAt" DROP DEFAULT;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'AuditFinding'
+      AND column_name = 'updatedAt'
+  ) THEN
+    EXECUTE 'ALTER TABLE "AuditFinding" ALTER COLUMN "updatedAt" DROP DEFAULT';
+  END IF;
+END $$;
 
--- AlterTable
-ALTER TABLE "AuditLog" ALTER COLUMN "actionType" DROP DEFAULT,
-ALTER COLUMN "targetType" DROP DEFAULT;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'AuditLog'
+      AND column_name = 'actionType'
+  ) THEN
+    EXECUTE 'ALTER TABLE "AuditLog" ALTER COLUMN "actionType" DROP DEFAULT';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'AuditLog'
+      AND column_name = 'targetType'
+  ) THEN
+    EXECUTE 'ALTER TABLE "AuditLog" ALTER COLUMN "targetType" DROP DEFAULT';
+  END IF;
+END $$;
 
--- AlterTable
-ALTER TABLE "InternalControlRule" ALTER COLUMN "updatedAt" DROP DEFAULT;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'InternalControlRule'
+      AND column_name = 'updatedAt'
+  ) THEN
+    EXECUTE 'ALTER TABLE "InternalControlRule" ALTER COLUMN "updatedAt" DROP DEFAULT';
+  END IF;
+END $$;
 
 -- CreateTable
 CREATE TABLE "Voting" (
@@ -69,8 +111,17 @@ CREATE UNIQUE INDEX "VotingVote_votingId_voteHash_key" ON "VotingVote"("votingId
 -- CreateIndex
 CREATE INDEX "VotingComment_votingId_createdAt_idx" ON "VotingComment"("votingId", "createdAt");
 
--- AddForeignKey
-ALTER TABLE "AuditFinding" ADD CONSTRAINT "AuditFinding_createdByMemberId_fkey" FOREIGN KEY ("createdByMemberId") REFERENCES "Member"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'AuditFinding'
+      AND column_name = 'createdByMemberId'
+  ) THEN
+    EXECUTE 'ALTER TABLE "AuditFinding" ADD CONSTRAINT "AuditFinding_createdByMemberId_fkey" FOREIGN KEY ("createdByMemberId") REFERENCES "Member"("id") ON DELETE RESTRICT ON UPDATE CASCADE';
+  END IF;
+END $$;
 
 -- AddForeignKey
 ALTER TABLE "Voting" ADD CONSTRAINT "Voting_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "Group"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
