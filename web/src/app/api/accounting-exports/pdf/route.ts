@@ -199,10 +199,146 @@ export async function GET(request: Request) {
     const fontBytes = fs.readFileSync(fontPath);
     const customFont = await pdfDoc.embedFont(fontBytes);
 
-    // ページ追加
-    let page = pdfDoc.addPage([595, 842]); // A4サイズ
-    const { width, height } = page.getSize();
-    let currentY = height - 50;
+    const pageSize: [number, number] = [595, 842];
+    const pageWidth = pageSize[0];
+    const pageHeight = pageSize[1];
+    let page = pdfDoc.addPage(pageSize);
+    let currentY = pageHeight - 50;
+
+    const tableConfig = {
+      left: 50,
+      right: pageWidth - 50,
+      headerHeight: 24,
+      rowHeight: 24,
+      textSize: 11,
+    };
+    const tableWidth = tableConfig.right - tableConfig.left;
+    const amountColumnX = tableConfig.right - 12;
+
+    const addNewPage = () => {
+      page = pdfDoc.addPage(pageSize);
+      currentY = pageHeight - 50;
+    };
+
+    type TableRow = { label: string; value: string; isTotal?: boolean };
+
+    const drawTableHeader = () => {
+      page.drawRectangle({
+        x: tableConfig.left,
+        y: currentY - tableConfig.headerHeight,
+        width: tableWidth,
+        height: tableConfig.headerHeight,
+        color: rgb(0.93, 0.95, 1),
+        borderColor: rgb(0.8, 0.8, 0.8),
+        borderWidth: 1,
+      });
+      page.drawLine({
+        start: {
+          x: tableConfig.left + tableWidth * 0.65,
+          y: currentY - tableConfig.headerHeight,
+        },
+        end: {
+          x: tableConfig.left + tableWidth * 0.65,
+          y: currentY,
+        },
+        thickness: 1,
+        color: rgb(0.8, 0.8, 0.8),
+      });
+      page.drawText("項目", {
+        x: tableConfig.left + 12,
+        y: currentY - tableConfig.headerHeight + 7,
+        size: 11,
+        font: customFont,
+        color: rgb(0.25, 0.25, 0.25),
+      });
+      page.drawText("金額", {
+        x: amountColumnX - customFont.widthOfTextAtSize("金額", 11),
+        y: currentY - tableConfig.headerHeight + 7,
+        size: 11,
+        font: customFont,
+        color: rgb(0.25, 0.25, 0.25),
+      });
+      currentY -= tableConfig.headerHeight;
+    };
+
+    const drawTableRows = (rows: TableRow[]) => {
+      let headerDrawn = false;
+      const ensureHeader = () => {
+        if (!headerDrawn) {
+          drawTableHeader();
+          headerDrawn = true;
+        }
+      };
+      ensureHeader();
+      for (const row of rows) {
+        if (currentY - tableConfig.rowHeight < 60) {
+          addNewPage();
+          headerDrawn = false;
+          ensureHeader();
+        }
+
+        const rowY = currentY - tableConfig.rowHeight;
+        page.drawRectangle({
+          x: tableConfig.left,
+          y: rowY,
+          width: tableWidth,
+          height: tableConfig.rowHeight,
+          borderColor: rgb(0.85, 0.85, 0.85),
+          borderWidth: 1,
+          color: row.isTotal ? rgb(0.96, 0.97, 0.99) : undefined,
+        });
+        page.drawLine({
+          start: {
+            x: tableConfig.left + tableWidth * 0.65,
+            y: rowY,
+          },
+          end: {
+            x: tableConfig.left + tableWidth * 0.65,
+            y: rowY + tableConfig.rowHeight,
+          },
+          thickness: 0.8,
+          color: rgb(0.85, 0.85, 0.85),
+        });
+
+        const labelSize = row.isTotal ? 12 : tableConfig.textSize;
+        const valueSize = row.isTotal ? 12 : tableConfig.textSize;
+
+        page.drawText(row.label, {
+          x: tableConfig.left + 12,
+          y: rowY + 7,
+          size: labelSize,
+          font: customFont,
+          color: rgb(0.1, 0.1, 0.1),
+        });
+
+        const valueWidth = customFont.widthOfTextAtSize(row.value, valueSize);
+        page.drawText(row.value, {
+          x: amountColumnX - valueWidth,
+          y: rowY + 7,
+          size: valueSize,
+          font: customFont,
+          color: rgb(0.1, 0.1, 0.1),
+        });
+
+        currentY -= tableConfig.rowHeight;
+      }
+      currentY -= 20;
+    };
+
+    const drawSectionTable = (title: string, rows: TableRow[]) => {
+      if (currentY < 120) {
+        addNewPage();
+      }
+      page.drawText(title, {
+        x: tableConfig.left,
+        y: currentY,
+        size: 14,
+        font: customFont,
+        color: rgb(0, 0, 0),
+      });
+      currentY -= 25;
+      drawTableRows(rows);
+    };
 
     // タイトル
     const title = `${member.group.name} 収支計算書`;
@@ -210,7 +346,7 @@ export async function GET(request: Request) {
     const titleWidth = customFont.widthOfTextAtSize(title, titleSize);
 
     page.drawText(title, {
-      x: (width - titleWidth) / 2,
+      x: (pageWidth - titleWidth) / 2,
       y: currentY,
       size: titleSize,
       font: customFont,
@@ -229,165 +365,46 @@ export async function GET(request: Request) {
     });
     currentY -= 40;
 
-    // 収入の部
-    page.drawText("【収入の部】", {
-      x: 50,
-      y: currentY,
-      size: 14,
-      font: customFont,
-      color: rgb(0, 0, 0),
-    });
-    currentY -= 25;
+    const incomeRows: TableRow[] = [
+      { label: "前期繰越金", value: formatCurrency(carryover) },
+      ...Array.from(accountTotals.entries())
+        .filter(([, totals]) => totals.income > 0)
+        .map(([name, totals]) => ({
+          label: name,
+          value: formatCurrency(totals.income),
+        })),
+      {
+        label: "収入合計",
+        value: formatCurrency(carryover + totalIncome),
+        isTotal: true,
+      },
+    ];
 
-    // 前期繰越金
-    page.drawText(`前期繰越金`, {
-      x: 70,
-      y: currentY,
-      size: 12,
-      font: customFont,
-      color: rgb(0, 0, 0),
-    });
-    page.drawText(formatCurrency(carryover), {
-      x: width - 150,
-      y: currentY,
-      size: 12,
-      font: customFont,
-      color: rgb(0, 0, 0),
-    });
-    currentY -= 20;
+    const expenseRows: TableRow[] = [
+      ...Array.from(accountTotals.entries())
+        .filter(([, totals]) => totals.expense > 0)
+        .map(([name, totals]) => ({
+          label: name,
+          value: formatCurrency(totals.expense),
+        })),
+      {
+        label: "支出合計",
+        value: formatCurrency(totalExpense),
+        isTotal: true,
+      },
+    ];
 
-    // 各収入科目
-    for (const [accountName, totals] of accountTotals) {
-      if (totals.income > 0) {
-        if (currentY < 100) {
-          page = pdfDoc.addPage([595, 842]);
-          currentY = height - 50;
-        }
+    const nextCarryoverRows: TableRow[] = [
+      {
+        label: "次期繰越金",
+        value: formatCurrency(balance),
+        isTotal: true,
+      },
+    ];
 
-        page.drawText(accountName, {
-          x: 70,
-          y: currentY,
-          size: 12,
-          font: customFont,
-          color: rgb(0, 0, 0),
-        });
-        page.drawText(formatCurrency(totals.income), {
-          x: width - 150,
-          y: currentY,
-          size: 12,
-          font: customFont,
-          color: rgb(0, 0, 0),
-        });
-        currentY -= 20;
-      }
-    }
-
-    // 収入合計
-    currentY -= 10;
-    page.drawText("収入合計", {
-      x: 70,
-      y: currentY,
-      size: 12,
-      font: customFont,
-      color: rgb(0, 0, 0),
-    });
-    page.drawText(formatCurrency(carryover + totalIncome), {
-      x: width - 150,
-      y: currentY,
-      size: 12,
-      font: customFont,
-      color: rgb(0, 0, 0),
-    });
-    currentY -= 40;
-
-    // 支出の部
-    if (currentY < 150) {
-      page = pdfDoc.addPage([595, 842]);
-      currentY = height - 50;
-    }
-
-    page.drawText("【支出の部】", {
-      x: 50,
-      y: currentY,
-      size: 14,
-      font: customFont,
-      color: rgb(0, 0, 0),
-    });
-    currentY -= 25;
-
-    // 各支出科目
-    for (const [accountName, totals] of accountTotals) {
-      if (totals.expense > 0) {
-        if (currentY < 100) {
-          page = pdfDoc.addPage([595, 842]);
-          currentY = height - 50;
-        }
-
-        page.drawText(accountName, {
-          x: 70,
-          y: currentY,
-          size: 12,
-          font: customFont,
-          color: rgb(0, 0, 0),
-        });
-        page.drawText(formatCurrency(totals.expense), {
-          x: width - 150,
-          y: currentY,
-          size: 12,
-          font: customFont,
-          color: rgb(0, 0, 0),
-        });
-        currentY -= 20;
-      }
-    }
-
-    // 支出合計
-    currentY -= 10;
-    page.drawText("支出合計", {
-      x: 70,
-      y: currentY,
-      size: 12,
-      font: customFont,
-      color: rgb(0, 0, 0),
-    });
-    page.drawText(formatCurrency(totalExpense), {
-      x: width - 150,
-      y: currentY,
-      size: 12,
-      font: customFont,
-      color: rgb(0, 0, 0),
-    });
-    currentY -= 40;
-
-    // 次期繰越金
-    if (currentY < 100) {
-      page = pdfDoc.addPage([595, 842]);
-      currentY = height - 50;
-    }
-
-    page.drawText("【次期繰越金】", {
-      x: 50,
-      y: currentY,
-      size: 14,
-      font: customFont,
-      color: rgb(0, 0, 0),
-    });
-    currentY -= 25;
-
-    page.drawText("次期繰越金", {
-      x: 70,
-      y: currentY,
-      size: 12,
-      font: customFont,
-      color: rgb(0, 0, 0),
-    });
-    page.drawText(formatCurrency(balance), {
-      x: width - 150,
-      y: currentY,
-      size: 12,
-      font: customFont,
-      color: rgb(0, 0, 0),
-    });
+    drawSectionTable("【収入の部】", incomeRows);
+    drawSectionTable("【支出の部】", expenseRows);
+    drawSectionTable("【次期繰越金】", nextCarryoverRows);
 
     // PDFをバイト配列として保存
     const pdfBytes = await pdfDoc.save();
