@@ -29,6 +29,9 @@ model Group {
   fiscalYearCloses     FiscalYearClose[]
   audits               Audit[]
   auditLogs            AuditLog[]
+  approvalTemplates    ApprovalTemplate[]
+  approvalRoutes       ApprovalRoute[]
+  approvalApplications ApprovalApplication[]
 }
 
 model Member {
@@ -56,6 +59,8 @@ model Member {
   fiscalYearClosesConfirmed FiscalYearClose[]  @relation("FiscalYearCloseConfirmedBy")
   auditsConducted         Audit[]              @relation("AuditAuditor")
   auditLogs               AuditLog[]
+  approvalApplications    ApprovalApplication[] @relation("ApplicationApplicant")
+  approvalAssignments     ApprovalAssignment[]
 }
 
 model InviteCode {
@@ -545,4 +550,91 @@ model FiscalYearClose {
 
   @@unique([groupId, fiscalYear])
   @@index([groupId, status])
+}
+
+enum ApprovalStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ApprovalStepStatus {
+  WAITING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+}
+
+model ApprovalRoute {
+  id        Int      @id @default(autoincrement())
+  groupId   Int
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  steps     ApprovalStep[]
+  templates ApprovalTemplate[]
+}
+
+model ApprovalStep {
+  id           Int      @id @default(autoincrement())
+  routeId      Int
+  route        ApprovalRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  stepOrder    Int
+  approverRole String
+  requireAll   Boolean @default(true)
+  conditions   Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ApprovalTemplate {
+  id          Int      @id @default(autoincrement())
+  groupId     Int
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  fields      Json
+  routeId     Int
+  route       ApprovalRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  applications ApprovalApplication[]
+}
+
+model ApprovalApplication {
+  id           Int            @id @default(autoincrement())
+  groupId      Int
+  group        Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  templateId   Int
+  template     ApprovalTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  applicantId  Int
+  applicant    Member         @relation("ApplicationApplicant", fields: [applicantId], references: [id])
+  title        String
+  data         Json
+  status       ApprovalStatus @default(DRAFT)
+  currentStep  Int?           @default(1)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  assignments  ApprovalAssignment[]
+}
+
+model ApprovalAssignment {
+  id            Int                @id @default(autoincrement())
+  applicationId Int
+  application   ApprovalApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  stepId        Int
+  stepOrder     Int
+  approverRole  String
+  assignedToId  Int?
+  assignedTo    Member?           @relation(fields: [assignedToId], references: [id])
+  status        ApprovalStepStatus @default(WAITING)
+  actedAt       DateTime?
+  comment       String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([applicationId, stepOrder])
 }
