@@ -20,6 +20,7 @@ const SOURCE_TYPE_LABELS: Record<ThreadSourceType, string> = {
   ACCOUNTING: "Accounting",
   DOCUMENT: "Document",
   VOTING: "Voting",
+  RECORD: "Record",
   FREE: "FREE",
 };
 
@@ -240,6 +241,23 @@ async function resolveThreadTitle(
       });
       return event ? `Event: ${event.title}` : null;
     }
+    case ThreadSourceType.RECORD: {
+      const record = await prisma.record.findFirst({
+        where: { id: sourceId!, groupId },
+        select: {
+          caption: true,
+          event: { select: { title: true } },
+        },
+      });
+      if (!record) return null;
+      if (record.caption) {
+        return `Record: ${record.caption}`;
+      }
+      if (record.event?.title) {
+        return `Record: ${record.event.title}`;
+      }
+      return "Record";
+    }
     case ThreadSourceType.VOTING: {
       const voting = await prisma.voting.findFirst({
         where: { id: sourceId!, groupId },
@@ -306,6 +324,8 @@ async function linkSourceRecordToThread(
         where: { id: sourceId, groupId },
         data: { threadId },
       });
+      break;
+    case ThreadSourceType.RECORD:
       break;
     default:
       break;

@@ -221,7 +221,7 @@ export default async function EventDetailPage({
                   Records一覧
                 </a>
                 <a
-                  href="/records/new"
+                  href={`/records/new?eventId=${event.id}&sourceType=EVENT&sourceId=${event.id}`}
                   className="rounded-full bg-sky-600 px-3 py-1 text-xs font-semibold text-white hover:bg-sky-700"
                 >
                   写真を追加

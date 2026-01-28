@@ -4,13 +4,15 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-type ConversionTarget = "todo" | "accounting" | "document" | "voting";
+type ConversionTarget = "todo" | "accounting" | "document" | "voting" | "record";
+type ConversionEndpointTarget = "todo" | "accounting" | "document";
 
 const ACTION_LABELS: Record<ConversionTarget, string> = {
   todo: "ToDoに変換",
   accounting: "会計の下書きに変換",
   document: "議事録として保存",
   voting: "投票にする",
+  record: "写真記録を作成",
 };
 
 const RESULT_LABELS: Record<ConversionTarget, string> = {
@@ -18,9 +20,10 @@ const RESULT_LABELS: Record<ConversionTarget, string> = {
   accounting: "会計下書き",
   document: "議事録",
   voting: "投票",
+  record: "Record",
 };
 
-const ENDPOINTS: Record<Exclude<ConversionTarget, "voting">, string> = {
+const ENDPOINTS: Record<ConversionEndpointTarget, string> = {
   todo: "/api/chat/convert/todo",
   accounting: "/api/chat/convert/accounting-draft",
   document: "/api/chat/convert/meeting-note",
@@ -30,12 +33,14 @@ type Props = {
   messageId: number;
   messageBody: string;
   threadId: number;
+  threadSourceType?: string | null;
+  threadSourceId?: number | null;
   convertedTargets: Record<ConversionTarget, boolean>;
   menuAlign?: "left" | "right";
 };
 
 type ConversionResponse = {
-  target: Exclude<ConversionTarget, "voting">;
+  target: ConversionEndpointTarget;
   status: "created" | "exists";
   url?: string;
 };
@@ -60,6 +65,8 @@ export function ChatMessageActions({
   messageId,
   messageBody,
   threadId,
+  threadSourceType,
+  threadSourceId,
   convertedTargets,
   menuAlign = "right",
 }: Props) {
@@ -80,6 +87,16 @@ export function ChatMessageActions({
     DEFAULT_VOTING_OPTIONS
   );
 
+  const recordCreateUrl = (() => {
+    const params = new URLSearchParams();
+    params.set("sourceType", "CHAT");
+    params.set("sourceId", String(messageId));
+    if (threadSourceType === "EVENT" && threadSourceId) {
+      params.set("eventId", String(threadSourceId));
+    }
+    return `/records/new?${params.toString()}`;
+  })();
+
   useEffect(() => {
     function handleClick(event: MouseEvent) {
       if (!containerRef.current?.contains(event.target as Node)) {
@@ -93,7 +110,7 @@ export function ChatMessageActions({
   }, [menuOpen]);
 
   const triggerConversion = useCallback(
-    async (target: Exclude<ConversionTarget, "voting">) => {
+    async (target: ConversionEndpointTarget) => {
       setPending(target);
       setError(null);
       setFeedback(null);
@@ -238,6 +255,21 @@ export function ChatMessageActions({
           >
             {(Object.keys(ACTION_LABELS) as Array<ConversionTarget>).map(
               (target) => {
+                if (target === "record") {
+                  return (
+                    <button
+                      key={target}
+                      type="button"
+                      onClick={() => {
+                        router.push(recordCreateUrl);
+                        setMenuOpen(false);
+                      }}
+                      className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-zinc-700 hover:bg-zinc-50"
+                    >
+                      <span>{ACTION_LABELS[target]}</span>
+                    </button>
+                  );
+                }
                 if (target === "voting") {
                   return (
                     <button

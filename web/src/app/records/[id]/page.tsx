@@ -7,6 +7,8 @@ import { isPlatformAdminEmail } from "@/lib/admin";
 import { RecordDeleteButton } from "@/components/record-delete-button";
 import { ROLE_ADMIN } from "@/lib/roles";
 import { RecordPhotoGallery } from "@/components/record-photo-gallery";
+import { RelatedThreadButton } from "@/components/related-thread-button";
+import { ThreadSourceType } from "@prisma/client";
 
 const SOURCE_LABELS: Record<string, string> = {
   CHAT: "Chat",
@@ -63,6 +65,15 @@ export default async function RecordDetailPage({ params }: RecordDetailProps) {
   const canDelete =
     isPlatformAdmin || isGroupAdmin || record.createdByMemberId === session.memberId;
 
+  const thread = await prisma.chatThread.findFirst({
+    where: {
+      groupId: session.groupId,
+      sourceType: ThreadSourceType.RECORD,
+      sourceId: record.id,
+    },
+    select: { id: true },
+  });
+
   return (
     <div className="min-h-screen py-10">
       <div className="page-shell space-y-8">
@@ -115,6 +126,16 @@ export default async function RecordDetailPage({ params }: RecordDetailProps) {
               </span>
             ) : null}
           </div>
+          {record.groupId === session.groupId ? (
+            <RelatedThreadButton
+              groupId={session.groupId}
+              sourceType={ThreadSourceType.RECORD}
+              sourceId={record.id}
+              title={`Record: ${record.caption || record.event?.title || "写真記録"}`}
+              threadId={thread?.id ?? null}
+              className="mt-2"
+            />
+          ) : null}
         </div>
 
         <section className="rounded-2xl border border-white bg-white p-6 shadow-sm">

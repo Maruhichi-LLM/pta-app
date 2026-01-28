@@ -6,7 +6,16 @@ import { ensureModuleEnabled } from "@/lib/modules";
 import { isPlatformAdminEmail } from "@/lib/admin";
 import { RecordCreateForm } from "@/components/record-create-form";
 
-export default async function RecordCreatePage() {
+type RecordCreatePageProps = {
+  searchParams?: Promise<{
+    eventId?: string;
+    sourceType?: string;
+    sourceId?: string;
+    caption?: string;
+  }>;
+};
+
+export default async function RecordCreatePage({ searchParams }: RecordCreatePageProps) {
   const session = await getSessionFromCookies();
   if (!session) {
     redirect("/join");
@@ -19,6 +28,12 @@ export default async function RecordCreatePage() {
     select: { email: true },
   });
   const isAdmin = isPlatformAdminEmail(member?.email ?? null);
+
+  const resolvedParams = (await searchParams) ?? {};
+  const eventIdParam = Number(resolvedParams.eventId ?? "");
+  const sourceIdParam = Number(resolvedParams.sourceId ?? "");
+  const sourceTypeParam = resolvedParams.sourceType?.toUpperCase();
+  const captionParam = resolvedParams.caption;
 
   const [events, adminGroups] = await Promise.all([
     prisma.event.findMany({
@@ -57,6 +72,20 @@ export default async function RecordCreatePage() {
             adminGroups={adminGroups}
             defaultGroupId={session.groupId}
             events={events}
+            defaultEventId={
+              Number.isInteger(eventIdParam) ? eventIdParam : undefined
+            }
+            defaultSourceType={
+              sourceTypeParam === "CHAT" ||
+              sourceTypeParam === "TODO" ||
+              sourceTypeParam === "EVENT"
+                ? sourceTypeParam
+                : undefined
+            }
+            defaultSourceId={
+              Number.isInteger(sourceIdParam) ? sourceIdParam : undefined
+            }
+            defaultCaption={captionParam ?? undefined}
           />
         </section>
       </div>

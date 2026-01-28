@@ -14,6 +14,7 @@ const SOURCE_TYPE_LABELS: Record<ThreadSourceType, string> = {
   ACCOUNTING: "Accounting",
   DOCUMENT: "Document",
   VOTING: "Voting",
+  RECORD: "Record",
   FREE: "FREE",
 };
 
@@ -278,11 +279,14 @@ export default async function ThreadDetailPage({ params, searchParams }: PagePro
                                   messageId={message.id}
                                   messageBody={message.body}
                                   threadId={thread.id}
+                                  threadSourceType={thread.sourceType}
+                                  threadSourceId={thread.sourceId ?? null}
                                   convertedTargets={{
                                     todo: message.todoItems.length > 0,
                                     accounting: message.ledgerEntries.length > 0,
                                     document: message.documents.length > 0,
                                     voting: sourceVotingMap.has(message.id),
+                                    record: false,
                                   }}
                                 />
                               </div>
@@ -363,6 +367,8 @@ function resolveSourceLink(sourceType: ThreadSourceType, sourceId: number | null
       return `/events`;
     case ThreadSourceType.VOTING:
       return `/voting/${sourceId}`;
+    case ThreadSourceType.RECORD:
+      return `/records/${sourceId}`;
     default:
       return null;
   }

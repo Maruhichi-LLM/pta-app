@@ -1,0 +1,1 @@
+ALTER TYPE "ThreadSourceType" ADD VALUE 'RECORD';

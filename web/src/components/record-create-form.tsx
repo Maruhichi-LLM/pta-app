@@ -16,6 +16,10 @@ type Props = {
   adminGroups?: Array<{ id: number; name: string }>;
   defaultGroupId: number;
   events: Array<{ id: number; title: string }>;
+  defaultEventId?: number;
+  defaultSourceType?: SourceType;
+  defaultSourceId?: number;
+  defaultCaption?: string;
 };
 
 export function RecordCreateForm({
@@ -23,12 +27,18 @@ export function RecordCreateForm({
   adminGroups = [],
   defaultGroupId,
   events,
+  defaultEventId,
+  defaultSourceType,
+  defaultSourceId,
+  defaultCaption,
 }: Props) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [sourceType, setSourceType] = useState<SourceType>("EVENT");
+  const [sourceType, setSourceType] = useState<SourceType>(
+    defaultSourceType ?? "EVENT"
+  );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -93,8 +103,8 @@ export function RecordCreateForm({
         関連イベント（推奨）
         <select
           name="eventId"
+          defaultValue={defaultEventId ? String(defaultEventId) : ""}
           className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-          defaultValue=""
         >
           <option value="">イベント未選択</option>
           {events.map((eventItem) => (
@@ -126,6 +136,7 @@ export function RecordCreateForm({
         <input
           type="number"
           name="sourceId"
+          defaultValue={defaultSourceId ? String(defaultSourceId) : ""}
           className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
           placeholder={sourceType === "EVENT" ? "イベントID" : "元データID"}
         />
@@ -136,6 +147,7 @@ export function RecordCreateForm({
         <input
           name="caption"
           maxLength={255}
+          defaultValue={defaultCaption ?? ""}
           className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
           placeholder="現場のメモを短く記録（任意）"
         />
