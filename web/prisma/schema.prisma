@@ -25,6 +25,7 @@ model Group {
   budgets              Budget[]
   enabledModules       String[]     @default([])
   documents            Document[]
+  records              Record[]
   eventBudgets         EventBudget[]
   fiscalYearCloses     FiscalYearClose[]
   auditLogs            AuditLog[]
@@ -67,6 +68,7 @@ model Member {
   approvalApplications    ApprovalApplication[] @relation("ApplicationApplicant")
   approvalAssignments     ApprovalAssignment[]
   votingsCreated          Voting[]             @relation("VotingCreatedBy")
+  records                Record[]              @relation("RecordCreatedBy")
 }
 
 model InviteCode {
@@ -135,6 +137,7 @@ model Event {
   updatedAt   DateTime      @updatedAt
   documents   Document[]
   budget      EventBudget?
+  records     Record[]
 }
 
 model Attendance {
@@ -360,6 +363,45 @@ enum DocumentCategory {
   FINANCE
   MEETING_NOTE
   OTHER
+}
+
+enum RecordSourceType {
+  CHAT
+  TODO
+  EVENT
+}
+
+model Record {
+  id                Int              @id @default(autoincrement())
+  groupId           Int
+  group             Group            @relation(fields: [groupId], references: [id])
+  eventId           Int?
+  event             Event?           @relation(fields: [eventId], references: [id])
+  sourceType        RecordSourceType
+  sourceId          Int?
+  caption           String?          @db.VarChar(255)
+  recordDate        DateTime
+  fiscalYear        Int
+  createdByMemberId Int
+  createdBy         Member           @relation("RecordCreatedBy", fields: [createdByMemberId], references: [id])
+  createdAt         DateTime         @default(now())
+  photos            RecordPhoto[]
+
+  @@index([groupId, fiscalYear])
+  @@index([eventId])
+}
+
+model RecordPhoto {
+  id        Int      @id @default(autoincrement())
+  recordId  Int
+  record    Record   @relation(fields: [recordId], references: [id])
+  fileName  String
+  mimeType  String
+  sizeBytes Int
+  url       String
+  createdAt DateTime @default(now())
+
+  @@index([recordId])
 }
 
 enum ThreadSourceType {

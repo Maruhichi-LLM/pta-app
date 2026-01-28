@@ -26,6 +26,7 @@ const STORE_DISPLAY_ORDER: AllModuleKey[] = [
   "event-budget",
   "calendar",
   "accounting",
+  "record",
   "document",
   "export",
   "approval",

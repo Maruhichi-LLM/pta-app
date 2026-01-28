@@ -66,6 +66,7 @@ async function fetchLayoutContext() {
     "event",
     "calendar",
     "accounting",
+    "record",
     "document",
     "export",
     "approval",

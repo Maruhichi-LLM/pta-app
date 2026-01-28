@@ -27,7 +27,8 @@ export default async function EventDetailPage({
   const { id: eventIdString } = await params;
   const eventId = Number(eventIdString);
 
-  const [event, budgetEnabled, member, thread] = await Promise.all([
+  const [event, budgetEnabled, recordsEnabled, member, thread] =
+    await Promise.all([
     prisma.event.findFirst({
       where: { id: eventId, groupId: session.groupId },
       include: {
@@ -56,6 +57,7 @@ export default async function EventDetailPage({
       },
     }),
     isModuleEnabled(session.groupId, "event-budget"),
+    isModuleEnabled(session.groupId, "record"),
     prisma.member.findUnique({
       where: { id: session.memberId },
     }),
@@ -82,6 +84,20 @@ export default async function EventDetailPage({
     },
     { YES: 0, NO: 0, MAYBE: 0 }
   );
+
+  const records = recordsEnabled
+    ? await prisma.record.findMany({
+        where: { eventId: event.id, groupId: session.groupId },
+        orderBy: { recordDate: "desc" },
+        include: {
+          photos: {
+            orderBy: { createdAt: "asc" },
+            take: 3,
+            select: { id: true, url: true },
+          },
+        },
+      })
+    : [];
 
   return (
     <div className="min-h-screen py-10">
@@ -184,6 +200,84 @@ export default async function EventDetailPage({
             </p>
           )}
         </section>
+
+        {/* Records セクション */}
+        {recordsEnabled ? (
+          <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-zinc-900">
+                  Knot Records
+                </h2>
+                <p className="mt-1 text-sm text-zinc-500">
+                  このイベントの活動写真を記録します。
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 text-sm">
+                <a
+                  href={`/records?eventId=${event.id}`}
+                  className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-600 hover:border-sky-300 hover:text-sky-600"
+                >
+                  Records一覧
+                </a>
+                <a
+                  href="/records/new"
+                  className="rounded-full bg-sky-600 px-3 py-1 text-xs font-semibold text-white hover:bg-sky-700"
+                >
+                  写真を追加
+                </a>
+              </div>
+            </div>
+            {records.length === 0 ? (
+              <p className="mt-4 text-sm text-zinc-500">
+                まだ写真記録がありません。
+              </p>
+            ) : (
+              <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {records.map((record) => (
+                  <a
+                    key={record.id}
+                    href={`/records/${record.id}`}
+                    className="group overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50"
+                  >
+                    <div className="grid grid-cols-3">
+                      {record.photos.map((photo) => (
+                        <div
+                          key={photo.id}
+                          className="aspect-square overflow-hidden"
+                        >
+                          <img
+                            src={photo.url}
+                            alt="Record photo"
+                            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                            loading="lazy"
+                          />
+                        </div>
+                      ))}
+                      {record.photos.length < 3
+                        ? Array.from({ length: 3 - record.photos.length }).map(
+                            (_, index) => (
+                              <div
+                                key={`empty-${record.id}-${index}`}
+                                className="aspect-square bg-zinc-100"
+                              />
+                            )
+                          )
+                        : null}
+                    </div>
+                    <div className="px-4 py-3 text-sm text-zinc-600">
+                      {record.caption || "写真記録"}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+          </section>
+        ) : (
+          <section className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+            Knot Records は現在無効です。モジュールを有効化すると写真記録を追加できます。
+          </section>
+        )}
 
         {/* 収支管理セクション（event-budget有効時のみ） */}
         {budgetEnabled && (

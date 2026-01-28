@@ -6,6 +6,7 @@ export const MODULE_LINKS = [
   { key: "event", label: "Knot Event", href: "/events" },
   { key: "calendar", label: "Knot Calendar", href: "/calendar" },
   { key: "accounting", label: "Knot Accounting", href: "/accounting" },
+  { key: "record", label: "Knot Records", href: "/records" },
   { key: "management", label: "Knot Management", href: "/management" },
   { key: "chat", label: "Knot Chat", href: "/chat" },
   { key: "voting", label: "Knot Voting", href: "/voting" },

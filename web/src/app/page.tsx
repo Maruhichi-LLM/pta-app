@@ -68,6 +68,7 @@ export default async function RootPage() {
     "event-budget",
     "calendar",
     "accounting",
+    "record",
     "document",
     "export",
     "approval",
@@ -120,6 +121,8 @@ export default async function RootPage() {
               const isEnabled = enabledSet.has(
                 moduleLink.key as AllModuleKey
               );
+              const isRecords = moduleLink.key === "record";
+              const showLock = Boolean(session && isRecords && !isEnabled);
               const variant = metadata?.variant ?? "default";
               const variantStyles = VARIANT_STYLES[variant];
               const targetHref =
@@ -131,13 +134,18 @@ export default async function RootPage() {
               return (
                 <div
                   key={moduleLink.key}
-                  className={`rounded-2xl border p-5 shadow-sm flex h-full min-h-[260px] flex-col justify-between ${variantStyles.border}`}
+                  className={`rounded-2xl border p-4 shadow-sm flex h-full min-h-[230px] flex-col justify-between ${variantStyles.border} ${
+                    showLock ? "opacity-70 bg-zinc-50 border-zinc-200" : ""
+                  }`}
                 >
                   <div>
                     <p
                       className={`text-xs uppercase tracking-wide ${variantStyles.label}`}
                     >
                       {moduleLink.label}
+                      {showLock ? (
+                        <span className="ml-2 text-xs text-zinc-400">🔒</span>
+                      ) : null}
                       <span className="ml-2 text-[0.65rem] text-zinc-400">
                         {isEnabled
                           ? "MODULE ENABLED"

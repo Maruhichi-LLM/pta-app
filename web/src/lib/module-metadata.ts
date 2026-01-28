@@ -21,6 +21,10 @@ export const MODULE_METADATA: Record<AllModuleKey, ModuleMetadata> = {
     description: "経費精算と承認フローをシンプルに。",
     badge: "会計 / Finance",
   },
+  record: {
+    description: "写真による活動記録",
+    badge: "写真 / Evidence",
+  },
   management: {
     description:
       "招待や機能ON/OFF、収支内訳書・予算設定を管理するヒューマンモジュール。",
