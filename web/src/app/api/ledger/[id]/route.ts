@@ -6,6 +6,7 @@ import { AuditActionType, AuditTargetType, Prisma } from "@prisma/client";
 import { deleteSearchIndex } from "@/lib/search-index";
 import { assertWriteRequestSecurity } from "@/lib/security";
 import { extractClientMeta, recordAuditLog } from "@/lib/audit";
+import { captureApiException, setApiSentryContext } from "@/lib/sentry";
 
 type UpdateLedgerRequest = {
   ledgerId?: number | string;
@@ -70,51 +71,73 @@ export async function PATCH(
     );
   }
 
+  const route = new URL(request.url).pathname;
+  const sentryContext = {
+    module: "accounting",
+    action: action === "approve" ? "ledger-approve" : "ledger-reject",
+    route,
+    method: request.method,
+    groupId: session.groupId,
+    memberId: session.memberId,
+    entity: { ledgerId: ledger.id },
+  } as const;
+  setApiSentryContext(sentryContext);
+
   const status = action === "approve" ? "APPROVED" : "REJECTED";
   const approvalAction = action === "approve" ? "APPROVED" : "REJECTED";
 
-  const updatedLedger = await prisma.$transaction(async (tx) => {
-    await tx.approval.create({
-      data: {
-        ledgerId: ledger.id,
-        actedByMemberId: session.memberId,
-        action: approvalAction,
-        comment: body.comment,
-      },
-    });
-
-    return tx.ledger.update({
-      where: { id: ledger.id },
-      data: { status },
-      include: {
-        approvals: {
-          orderBy: { createdAt: "desc" },
-          include: { actedBy: true },
+  try {
+    const updatedLedger = await prisma.$transaction(async (tx) => {
+      await tx.approval.create({
+        data: {
+          ledgerId: ledger.id,
+          actedByMemberId: session.memberId,
+          action: approvalAction,
+          comment: body.comment,
         },
-        createdBy: true,
-      },
+      });
+
+      return tx.ledger.update({
+        where: { id: ledger.id },
+        data: { status },
+        include: {
+          approvals: {
+            orderBy: { createdAt: "desc" },
+            include: { actedBy: true },
+          },
+          createdBy: true,
+        },
+      });
     });
-  });
 
-  const clientMeta = extractClientMeta(request);
-  await recordAuditLog({
-    groupId: session.groupId,
-    actorMemberId: session.memberId,
-    actionType:
-      action === "approve"
-        ? AuditActionType.APPROVE
-        : AuditActionType.REJECT,
-    targetType: AuditTargetType.LEDGER,
-    targetId: updatedLedger.id,
-    beforeJson: ledger as unknown as Prisma.JsonValue,
-    afterJson: updatedLedger as unknown as Prisma.JsonValue,
-    ipAddress: clientMeta.ipAddress,
-    userAgent: clientMeta.userAgent,
-  });
+    const clientMeta = extractClientMeta(request);
+    await recordAuditLog({
+      groupId: session.groupId,
+      actorMemberId: session.memberId,
+      actionType:
+        action === "approve"
+          ? AuditActionType.APPROVE
+          : AuditActionType.REJECT,
+      targetType: AuditTargetType.LEDGER,
+      targetId: updatedLedger.id,
+      beforeJson: ledger as unknown as Prisma.JsonValue,
+      afterJson: updatedLedger as unknown as Prisma.JsonValue,
+      ipAddress: clientMeta.ipAddress,
+      userAgent: clientMeta.userAgent,
+    });
 
-  revalidatePath("/accounting");
+    revalidatePath("/accounting");
 
-  return NextResponse.json({ success: true, ledger: updatedLedger });
+    return NextResponse.json({ success: true, ledger: updatedLedger });
+  } catch (error) {
+    captureApiException(error, sentryContext, {
+      action,
+    });
+    return NextResponse.json(
+      { error: "承認処理に失敗しました。" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function DELETE(
@@ -151,35 +174,55 @@ export async function DELETE(
     );
   }
 
-  // 関連する承認レコードも一緒に削除
-  await prisma.$transaction([
-    prisma.approval.deleteMany({
-      where: { ledgerId: ledger.id },
-    }),
-    prisma.ledger.delete({
-      where: { id: ledger.id },
-    }),
-  ]);
-
-  const clientMeta = extractClientMeta(request);
-  await recordAuditLog({
+  const route = new URL(request.url).pathname;
+  const sentryContext = {
+    module: "accounting",
+    action: "ledger-delete",
+    route,
+    method: request.method,
     groupId: session.groupId,
-    actorMemberId: session.memberId,
-    actionType: AuditActionType.DELETE,
-    targetType: AuditTargetType.LEDGER,
-    targetId: ledger.id,
-    beforeJson: ledger as unknown as Prisma.JsonValue,
-    ipAddress: clientMeta.ipAddress,
-    userAgent: clientMeta.userAgent,
-  });
+    memberId: session.memberId,
+    entity: { ledgerId: ledger.id },
+  } as const;
+  setApiSentryContext(sentryContext);
 
-  revalidatePath("/accounting");
+  try {
+    // 関連する承認レコードも一緒に削除
+    await prisma.$transaction([
+      prisma.approval.deleteMany({
+        where: { ledgerId: ledger.id },
+      }),
+      prisma.ledger.delete({
+        where: { id: ledger.id },
+      }),
+    ]);
 
-  await deleteSearchIndex({
-    groupId: session.groupId,
-    entityType: "LEDGER",
-    entityId: ledger.id,
-  });
+    const clientMeta = extractClientMeta(request);
+    await recordAuditLog({
+      groupId: session.groupId,
+      actorMemberId: session.memberId,
+      actionType: AuditActionType.DELETE,
+      targetType: AuditTargetType.LEDGER,
+      targetId: ledger.id,
+      beforeJson: ledger as unknown as Prisma.JsonValue,
+      ipAddress: clientMeta.ipAddress,
+      userAgent: clientMeta.userAgent,
+    });
 
-  return NextResponse.json({ success: true });
+    revalidatePath("/accounting");
+
+    await deleteSearchIndex({
+      groupId: session.groupId,
+      entityType: "LEDGER",
+      entityId: ledger.id,
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    captureApiException(error, sentryContext);
+    return NextResponse.json(
+      { error: "削除処理に失敗しました。" },
+      { status: 500 }
+    );
+  }
 }

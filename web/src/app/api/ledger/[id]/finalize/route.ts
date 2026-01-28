@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { getFiscalYear, resolveFiscalYearStartMonth } from "@/lib/fiscal-year";
 import { upsertSearchIndex } from "@/lib/search-index";
 import { assertWriteRequestSecurity } from "@/lib/security";
+import { captureApiException, setApiSentryContext } from "@/lib/sentry";
 
 type FinalizeLedgerRequest = {
   ledgerId?: number | string;
@@ -134,47 +135,69 @@ export async function POST(
     );
   }
 
+  const route = new URL(request.url).pathname;
+  const sentryContext = {
+    module: "accounting",
+    action: "ledger-finalize",
+    route,
+    method: request.method,
+    groupId: session.groupId,
+    memberId: session.memberId,
+    entity: { ledgerId: ledger.id },
+  } as const;
+  setApiSentryContext(sentryContext);
+
   const receiptUrl =
     (payload.receiptUrl ? String(payload.receiptUrl).trim() : undefined) || null;
   const notes =
     (payload.notes ? String(payload.notes).trim() : undefined) || null;
 
-  const updated = await prisma.ledger.update({
-    where: { id: ledger.id },
-    data: {
-      amount: Math.round(amountNumber),
+  try {
+    const updated = await prisma.ledger.update({
+      where: { id: ledger.id },
+      data: {
+        amount: Math.round(amountNumber),
+        accountId: account.id,
+        transactionDate,
+        receiptUrl,
+        notes,
+        status: "PENDING",
+      },
+      include: {
+        approvals: {
+          orderBy: { createdAt: "desc" },
+          include: { actedBy: true },
+        },
+        createdBy: true,
+        account: {
+          select: { id: true, name: true, type: true },
+        },
+      },
+    });
+
+    revalidatePath("/accounting");
+
+    const startMonth = await resolveFiscalYearStartMonth(session.groupId);
+    await upsertSearchIndex({
+      groupId: session.groupId,
+      entityType: "LEDGER",
+      entityId: updated.id,
+      title: updated.title,
+      content: updated.notes,
+      urlPath: `/accounting?focus=${updated.id}`,
+      threadId: updated.sourceThreadId ?? null,
+      fiscalYear: getFiscalYear(updated.transactionDate, startMonth),
+      occurredAt: updated.transactionDate,
+    });
+
+    return NextResponse.json({ success: true, ledger: updated });
+  } catch (error) {
+    captureApiException(error, sentryContext, {
       accountId: account.id,
-      transactionDate,
-      receiptUrl,
-      notes,
-      status: "PENDING",
-    },
-    include: {
-      approvals: {
-        orderBy: { createdAt: "desc" },
-        include: { actedBy: true },
-      },
-      createdBy: true,
-      account: {
-        select: { id: true, name: true, type: true },
-      },
-    },
-  });
-
-  revalidatePath("/accounting");
-
-  const startMonth = await resolveFiscalYearStartMonth(session.groupId);
-  await upsertSearchIndex({
-    groupId: session.groupId,
-    entityType: "LEDGER",
-    entityId: updated.id,
-    title: updated.title,
-    content: updated.notes,
-    urlPath: `/accounting?focus=${updated.id}`,
-    threadId: updated.sourceThreadId ?? null,
-    fiscalYear: getFiscalYear(updated.transactionDate, startMonth),
-    occurredAt: updated.transactionDate,
-  });
-
-  return NextResponse.json({ success: true, ledger: updated });
+    });
+    return NextResponse.json(
+      { error: "下書きの提出に失敗しました。" },
+      { status: 500 }
+    );
+  }
 }

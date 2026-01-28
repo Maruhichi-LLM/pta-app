@@ -11,6 +11,7 @@ import {
 } from "@prisma/client";
 import { assertWriteRequestSecurity } from "@/lib/security";
 import { recordAuditLog } from "@/lib/audit/logging";
+import { captureApiException, setApiSentryContext } from "@/lib/sentry";
 
 function parseDate(value: string | null) {
   if (!value) return null;
@@ -176,42 +177,63 @@ export async function POST(request: NextRequest) {
       })
     : null;
 
-  const finding = await prisma.auditFinding.create({
-    data: {
-      groupId: session.groupId,
-      title,
-      description,
-      category,
-      severity,
-      status,
-      logIds,
-      targetRefs,
-      assigneeMemberId: assignee?.id ?? null,
-      createdByMemberId: member.id,
-    },
-    include: {
-      assignee: { select: { id: true, displayName: true } },
-      createdBy: { select: { id: true, displayName: true } },
-    },
-  });
-
-  await recordAuditLog({
+  const routePath = new URL(request.url).pathname;
+  const sentryContext = {
+    module: "audit",
+    action: "audit-finding-create",
+    route: routePath,
+    method: request.method,
     groupId: session.groupId,
-    actorMemberId: member.id,
-    actionType: AuditActionType.CREATE,
-    targetType: AuditTargetType.AUDIT_FINDING,
-    targetId: finding.id,
-    afterJson: finding as unknown as Prisma.JsonValue,
-  });
+    memberId: member.id,
+  } as const;
+  setApiSentryContext(sentryContext);
 
-  return NextResponse.json(
-    {
-      finding: {
-        ...finding,
-        createdAt: finding.createdAt.toISOString(),
-        updatedAt: finding.updatedAt.toISOString(),
+  try {
+    const finding = await prisma.auditFinding.create({
+      data: {
+        groupId: session.groupId,
+        title,
+        description,
+        category,
+        severity,
+        status,
+        logIds,
+        targetRefs,
+        assigneeMemberId: assignee?.id ?? null,
+        createdByMemberId: member.id,
       },
-    },
-    { status: 201 }
-  );
+      include: {
+        assignee: { select: { id: true, displayName: true } },
+        createdBy: { select: { id: true, displayName: true } },
+      },
+    });
+
+    await recordAuditLog({
+      groupId: session.groupId,
+      actorMemberId: member.id,
+      actionType: AuditActionType.CREATE,
+      targetType: AuditTargetType.AUDIT_FINDING,
+      targetId: finding.id,
+      afterJson: finding as unknown as Prisma.JsonValue,
+    });
+
+    return NextResponse.json(
+      {
+        finding: {
+          ...finding,
+          createdAt: finding.createdAt.toISOString(),
+          updatedAt: finding.updatedAt.toISOString(),
+        },
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    captureApiException(error, sentryContext, {
+      assigneeMemberId: assignee?.id ?? null,
+    });
+    return NextResponse.json(
+      { error: "監査指摘の作成に失敗しました。" },
+      { status: 500 }
+    );
+  }
 }

@@ -64,13 +64,13 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ orgId: string }> }
 ) {
-  const session = await getSessionFromCookies();
+  const initialSession = await getSessionFromCookies();
   const guard = assertWriteRequestSecurity(request, {
-    memberId: session?.memberId,
+    memberId: initialSession?.memberId,
   });
   if (guard) return guard;
   const { orgId: orgIdParam } = await params;
-  const context = await requireOrgSession(orgIdParam, session);
+  const context = await requireOrgSession(orgIdParam, initialSession);
   if ("error" in context) {
     return context.error;
   }

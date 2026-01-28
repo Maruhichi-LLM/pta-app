@@ -5,6 +5,7 @@ import { ROLE_ADMIN } from "@/lib/roles";
 import { ensureModuleEnabled, isModuleEnabled } from "@/lib/modules";
 import { assertWriteRequestSecurity } from "@/lib/security";
 import { parseApprovalFormSchema } from "@/lib/approval-schema";
+import { captureApiException, setApiSentryContext } from "@/lib/sentry";
 
 export async function GET() {
   const session = await getSessionFromCookies();
@@ -101,33 +102,53 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const template = await prisma.approvalTemplate.create({
-    data: {
-      groupId: session.groupId,
-      name: body.name.trim(),
-      description: body.description?.trim() || null,
-      fields: fieldsSchema,
-      routeId: route.id,
-    },
-    include: {
-      route: {
-        select: {
-          id: true,
-          name: true,
-          steps: { orderBy: { stepOrder: "asc" } },
+  const routePath = new URL(request.url).pathname;
+  const sentryContext = {
+    module: "approval",
+    action: "approval-template-create",
+    route: routePath,
+    method: request.method,
+    groupId: session.groupId,
+    memberId: session.memberId,
+    entity: { routeId: route.id },
+  } as const;
+  setApiSentryContext(sentryContext);
+
+  try {
+    const template = await prisma.approvalTemplate.create({
+      data: {
+        groupId: session.groupId,
+        name: body.name.trim(),
+        description: body.description?.trim() || null,
+        fields: fieldsSchema,
+        routeId: route.id,
+      },
+      include: {
+        route: {
+          select: {
+            id: true,
+            name: true,
+            steps: { orderBy: { stepOrder: "asc" } },
+          },
         },
       },
-    },
-  });
+    });
 
-  return NextResponse.json(
-    {
-      template: {
-        ...template,
-        createdAt: template.createdAt.toISOString(),
-        updatedAt: template.updatedAt.toISOString(),
+    return NextResponse.json(
+      {
+        template: {
+          ...template,
+          createdAt: template.createdAt.toISOString(),
+          updatedAt: template.updatedAt.toISOString(),
+        },
       },
-    },
-    { status: 201 }
-  );
+      { status: 201 }
+    );
+  } catch (error) {
+    captureApiException(error, sentryContext);
+    return NextResponse.json(
+      { error: "テンプレート作成に失敗しました。" },
+      { status: 500 }
+    );
+  }
 }

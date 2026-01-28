@@ -4,6 +4,7 @@ import { getSessionFromCookies } from "@/lib/session";
 import { ROLE_ADMIN } from "@/lib/roles";
 import { revalidatePath } from "next/cache";
 import { assertWriteRequestSecurity } from "@/lib/security";
+import { captureApiException, setApiSentryContext } from "@/lib/sentry";
 
 type CarryoverRequest = {
   carryoverAmount: number;
@@ -42,12 +43,31 @@ export async function POST(request: Request) {
 
   const carryoverAmount = Math.round(amount);
 
-  await prisma.accountingSetting.update({
-    where: { groupId: session.groupId },
-    data: { carryoverAmount },
-  });
+  const route = new URL(request.url).pathname;
+  const sentryContext = {
+    module: "accounting",
+    action: "carryover-update",
+    route,
+    method: request.method,
+    groupId: session.groupId,
+    memberId: session.memberId,
+  } as const;
+  setApiSentryContext(sentryContext);
 
-  revalidatePath("/accounting");
+  try {
+    await prisma.accountingSetting.update({
+      where: { groupId: session.groupId },
+      data: { carryoverAmount },
+    });
 
-  return NextResponse.json({ success: true, carryoverAmount });
+    revalidatePath("/accounting");
+
+    return NextResponse.json({ success: true, carryoverAmount });
+  } catch (error) {
+    captureApiException(error, sentryContext);
+    return NextResponse.json(
+      { error: "繰越金額の更新に失敗しました。" },
+      { status: 500 }
+    );
+  }
 }

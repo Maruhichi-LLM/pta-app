@@ -6,6 +6,7 @@ import { ensureModuleEnabled, isModuleEnabled } from "@/lib/modules";
 import { assertWriteRequestSecurity } from "@/lib/security";
 
 import { Prisma } from "@prisma/client";
+import { captureApiException, setApiSentryContext } from "@/lib/sentry";
 
 type StepInput = {
   approverRole: string;
@@ -114,30 +115,49 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const created = await prisma.approvalRoute.create({
-    data: {
-      groupId: session.groupId,
-      name: body.name.trim(),
-      steps: {
-        create: steps.map((step, index) => ({
-          stepOrder: index + 1,
-          approverRole: step.approverRole,
-          requireAll: step.requireAll ?? true,
-          conditions: step.conditions,
-        })),
-      },
-    },
-    include: { steps: { orderBy: { stepOrder: "asc" } } },
-  });
+  const route = new URL(request.url).pathname;
+  const sentryContext = {
+    module: "approval",
+    action: "approval-route-create",
+    route,
+    method: request.method,
+    groupId: session.groupId,
+    memberId: session.memberId,
+  } as const;
+  setApiSentryContext(sentryContext);
 
-  return NextResponse.json(
-    {
-      route: {
-        ...created,
-        createdAt: created.createdAt.toISOString(),
-        updatedAt: created.updatedAt.toISOString(),
+  try {
+    const created = await prisma.approvalRoute.create({
+      data: {
+        groupId: session.groupId,
+        name: body.name.trim(),
+        steps: {
+          create: steps.map((step, index) => ({
+            stepOrder: index + 1,
+            approverRole: step.approverRole,
+            requireAll: step.requireAll ?? true,
+            conditions: step.conditions,
+          })),
+        },
       },
-    },
-    { status: 201 }
-  );
+      include: { steps: { orderBy: { stepOrder: "asc" } } },
+    });
+
+    return NextResponse.json(
+      {
+        route: {
+          ...created,
+          createdAt: created.createdAt.toISOString(),
+          updatedAt: created.updatedAt.toISOString(),
+        },
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    captureApiException(error, sentryContext);
+    return NextResponse.json(
+      { error: "承認ルートの作成に失敗しました。" },
+      { status: 500 }
+    );
+  }
 }

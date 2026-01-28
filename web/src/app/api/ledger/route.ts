@@ -7,6 +7,7 @@ import { getFiscalYear, resolveFiscalYearStartMonth } from "@/lib/fiscal-year";
 import { upsertSearchIndex } from "@/lib/search-index";
 import { assertWriteRequestSecurity } from "@/lib/security";
 import { extractClientMeta, recordAuditLog } from "@/lib/audit";
+import { captureApiException, setApiSentryContext } from "@/lib/sentry";
 
 type CreateLedgerRequest = {
   title?: string;
@@ -73,45 +74,67 @@ export async function POST(request: Request) {
     );
   }
 
-  const ledger = await prisma.ledger.create({
-    data: {
+  const route = new URL(request.url).pathname;
+  const sentryContext = {
+    module: "accounting",
+    action: "ledger-create",
+    route,
+    method: request.method,
+    groupId: session.groupId,
+    memberId: session.memberId,
+  } as const;
+  setApiSentryContext(sentryContext);
+
+  try {
+    const ledger = await prisma.ledger.create({
+      data: {
+        groupId: session.groupId,
+        createdByMemberId: session.memberId,
+        title,
+        amount: Math.round(amountNumber),
+        transactionDate,
+        receiptUrl,
+        notes,
+        accountId: account.id,
+      },
+    });
+
+    const clientMeta = extractClientMeta(request);
+    await recordAuditLog({
       groupId: session.groupId,
-      createdByMemberId: session.memberId,
-      title,
-      amount: Math.round(amountNumber),
-      transactionDate,
-      receiptUrl,
-      notes,
-      accountId: account.id,
-    },
-  });
+      actorMemberId: session.memberId,
+      actionType: AuditActionType.CREATE,
+      targetType: AuditTargetType.LEDGER,
+      targetId: ledger.id,
+      afterJson: ledger as unknown as Prisma.JsonValue,
+      ipAddress: clientMeta.ipAddress,
+      userAgent: clientMeta.userAgent,
+    });
 
-  const clientMeta = extractClientMeta(request);
-  await recordAuditLog({
-    groupId: session.groupId,
-    actorMemberId: session.memberId,
-    actionType: AuditActionType.CREATE,
-    targetType: AuditTargetType.LEDGER,
-    targetId: ledger.id,
-    afterJson: ledger as unknown as Prisma.JsonValue,
-    ipAddress: clientMeta.ipAddress,
-    userAgent: clientMeta.userAgent,
-  });
+    revalidatePath("/accounting");
 
-  revalidatePath("/accounting");
+    const startMonth = await resolveFiscalYearStartMonth(session.groupId);
+    await upsertSearchIndex({
+      groupId: session.groupId,
+      entityType: "LEDGER",
+      entityId: ledger.id,
+      title: ledger.title,
+      content: ledger.notes,
+      urlPath: `/accounting?focus=${ledger.id}`,
+      threadId: ledger.sourceThreadId ?? null,
+      fiscalYear: getFiscalYear(ledger.transactionDate, startMonth),
+      occurredAt: ledger.transactionDate,
+    });
 
-  const startMonth = await resolveFiscalYearStartMonth(session.groupId);
-  await upsertSearchIndex({
-    groupId: session.groupId,
-    entityType: "LEDGER",
-    entityId: ledger.id,
-    title: ledger.title,
-    content: ledger.notes,
-    urlPath: `/accounting?focus=${ledger.id}`,
-    threadId: ledger.sourceThreadId ?? null,
-    fiscalYear: getFiscalYear(ledger.transactionDate, startMonth),
-    occurredAt: ledger.transactionDate,
-  });
-
-  return NextResponse.json({ success: true, ledger });
+    return NextResponse.json({ success: true, ledger });
+  } catch (error) {
+    captureApiException(error, {
+      ...sentryContext,
+      entity: { accountId: account.id },
+    });
+    return NextResponse.json(
+      { error: "経費の作成に失敗しました。" },
+      { status: 500 }
+    );
+  }
 }

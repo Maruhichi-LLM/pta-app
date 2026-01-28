@@ -6,6 +6,7 @@ import { getSessionFromCookies } from "@/lib/session";
 import { ensureModuleEnabled } from "@/lib/modules";
 import { assertWriteRequestSecurity } from "@/lib/security";
 import { buildVoteHash, buildResultsFromCounts } from "@/lib/voting";
+import { captureApiException, setApiSentryContext } from "@/lib/sentry";
 
 type VotePayload = {
   choiceId?: string;
@@ -33,6 +34,18 @@ export async function POST(
       { status: 404 }
     );
   }
+
+  const routePath = new URL(request.url).pathname;
+  const sentryContext = {
+    module: "voting",
+    action: "voting-vote",
+    route: routePath,
+    method: request.method,
+    groupId: session.groupId,
+    memberId: session.memberId,
+    entity: { votingId },
+  } as const;
+  setApiSentryContext(sentryContext);
 
   const voting = await prisma.voting.findFirst({
     where: { id: votingId, groupId: session.groupId },
@@ -105,7 +118,8 @@ export async function POST(
   let voteHash: string;
   try {
     voteHash = buildVoteHash(votingId, session.memberId);
-  } catch {
+  } catch (error) {
+    captureApiException(error, sentryContext);
     return NextResponse.json(
       { error: "投票処理に失敗しました。" },
       { status: 500 }
@@ -130,32 +144,41 @@ export async function POST(
         { status: 400 }
       );
     }
+    captureApiException(error, sentryContext, { choiceId });
     return NextResponse.json(
       { error: "投票処理に失敗しました。" },
       { status: 500 }
     );
   }
 
-  const counts = await prisma.votingVote.groupBy({
-    by: ["choiceId"],
-    where: { votingId },
-    _count: { _all: true },
-  });
-  const countMap: Record<string, number> = {};
-  counts.forEach((item) => {
-    countMap[item.choiceId] = item._count._all;
-  });
-  const { results, total } = buildResultsFromCounts(options, countMap);
-  await prisma.voting.update({
-    where: { id: votingId },
-    data: {
-      results,
-      totalVotes: total,
-    },
-  });
+  try {
+    const counts = await prisma.votingVote.groupBy({
+      by: ["choiceId"],
+      where: { votingId },
+      _count: { _all: true },
+    });
+    const countMap: Record<string, number> = {};
+    counts.forEach((item) => {
+      countMap[item.choiceId] = item._count._all;
+    });
+    const { results, total } = buildResultsFromCounts(options, countMap);
+    await prisma.voting.update({
+      where: { id: votingId },
+      data: {
+        results,
+        totalVotes: total,
+      },
+    });
 
-  revalidatePath("/voting");
-  revalidatePath(`/voting/${votingId}`);
+    revalidatePath("/voting");
+    revalidatePath(`/voting/${votingId}`);
 
-  return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    captureApiException(error, sentryContext, { choiceId });
+    return NextResponse.json(
+      { error: "投票結果の更新に失敗しました。" },
+      { status: 500 }
+    );
+  }
 }

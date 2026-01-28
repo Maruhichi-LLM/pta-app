@@ -9,6 +9,11 @@ import {
   computeFiscalYearPeriod,
   summarizeLedgersForStatement,
 } from "@/lib/accounting/fiscalYearClose";
+import {
+  addSentryBreadcrumb,
+  captureApiException,
+  setApiSentryContext,
+} from "@/lib/sentry";
 
 type CreateOrUpdateRequest = {
   fiscalYear: number;
@@ -108,162 +113,212 @@ export async function POST(request: Request) {
   }
 
   const action = body.action ?? "create";
+  const route = new URL(request.url).pathname;
+  const sentryContext = {
+    module: "accounting",
+    action: "fiscal-year-close",
+    route,
+    method: request.method,
+    groupId: session.groupId,
+    memberId: session.memberId,
+    entity: {
+      fiscalYear: body.fiscalYear,
+    },
+  } as const;
 
-  // 繰越金をサーバー側で解決: 前年度確定 → フォールバック accountingSetting.carryoverAmount
-  const [previousYearClose, accountingSetting] = await Promise.all([
-    prisma.fiscalYearClose.findUnique({
+  setApiSentryContext(sentryContext);
+  addSentryBreadcrumb("FiscalYearClose start", {
+    action,
+    fiscalYear: body.fiscalYear,
+  });
+
+  try {
+    // 繰越金をサーバー側で解決: 前年度確定 → フォールバック accountingSetting.carryoverAmount
+    const [previousYearClose, accountingSetting] = await Promise.all([
+      prisma.fiscalYearClose.findUnique({
+        where: {
+          groupId_fiscalYear: {
+            groupId: session.groupId,
+            fiscalYear: body.fiscalYear - 1,
+          },
+        },
+        select: { status: true, nextCarryover: true },
+      }),
+      prisma.accountingSetting.findUnique({
+        where: { groupId: session.groupId },
+        select: { carryoverAmount: true },
+      }),
+    ]);
+
+    const previousCarryover =
+      previousYearClose && previousYearClose.status === "CONFIRMED"
+        ? previousYearClose.nextCarryover
+        : (accountingSetting?.carryoverAmount ?? 0);
+
+    // 既存の締めを確認
+    const existing = await prisma.fiscalYearClose.findUnique({
       where: {
         groupId_fiscalYear: {
           groupId: session.groupId,
-          fiscalYear: body.fiscalYear - 1,
+          fiscalYear: body.fiscalYear,
         },
       },
-      select: { status: true, nextCarryover: true },
-    }),
-    prisma.accountingSetting.findUnique({
-      where: { groupId: session.groupId },
-      select: { carryoverAmount: true },
-    }),
-  ]);
+    });
 
-  const previousCarryover =
-    previousYearClose && previousYearClose.status === "CONFIRMED"
-      ? previousYearClose.nextCarryover
-      : (accountingSetting?.carryoverAmount ?? 0);
-
-  // 既存の締めを確認
-  const existing = await prisma.fiscalYearClose.findUnique({
-    where: {
-      groupId_fiscalYear: {
-        groupId: session.groupId,
-        fiscalYear: body.fiscalYear,
-      },
-    },
-  });
-
-  const editCheck = assertFiscalYearCloseEditable(existing, action);
-  if (!editCheck.ok) {
-    return NextResponse.json({ error: editCheck.error }, { status: 400 });
-  }
-
-  const period = computeFiscalYearPeriod({
-    fiscalYear: body.fiscalYear,
-    startDate,
-    endDate,
-  });
-
-  const ledgers = await prisma.ledger.findMany({
-    where: {
-      groupId: session.groupId,
-      transactionDate: {
-        gte: period.startDate,
-        lte: period.endDate,
-      },
-    },
-    include: {
-      account: true,
-    },
-  });
-
-  const statement = summarizeLedgersForStatement({
-    ledgers,
-    previousCarryover,
-    period,
-  });
-
-  if (action === "confirm") {
-    // 確定処理
-    if (!existing) {
-      return NextResponse.json(
-        { error: "確定する前に下書きを作成してください。" },
-        { status: 400 }
-      );
+    const editCheck = assertFiscalYearCloseEditable(existing, action);
+    if (!editCheck.ok) {
+      return NextResponse.json({ error: editCheck.error }, { status: 400 });
     }
 
-    if (existing.status === "CONFIRMED") {
-      return NextResponse.json(
-        { error: "既に確定済みです。" },
-        { status: 400 }
-      );
+    const period = computeFiscalYearPeriod({
+      fiscalYear: body.fiscalYear,
+      startDate,
+      endDate,
+    });
+
+    const ledgers = await prisma.ledger.findMany({
+      where: {
+        groupId: session.groupId,
+        transactionDate: {
+          gte: period.startDate,
+          lte: period.endDate,
+        },
+      },
+      include: {
+        account: true,
+      },
+    });
+
+    const statement = summarizeLedgersForStatement({
+      ledgers,
+      previousCarryover,
+      period,
+    });
+
+    addSentryBreadcrumb("FiscalYearClose computed", {
+      ledgerCount: ledgers.length,
+      balance: statement.balance,
+    });
+
+    if (action === "confirm") {
+      // 確定処理
+      if (!existing) {
+        return NextResponse.json(
+          { error: "確定する前に下書きを作成してください。" },
+          { status: 400 }
+        );
+      }
+
+      if (existing.status === "CONFIRMED") {
+        return NextResponse.json(
+          { error: "既に確定済みです。" },
+          { status: 400 }
+        );
+      }
+
+      const updated = await prisma.fiscalYearClose.update({
+        where: { id: existing.id },
+        data: {
+          status: FiscalYearCloseStatus.CONFIRMED,
+          confirmedAt: new Date(),
+          confirmedById: session.memberId,
+        },
+        include: {
+          confirmedBy: {
+            select: {
+              id: true,
+              displayName: true,
+            },
+          },
+        },
+      });
+
+      addSentryBreadcrumb("FiscalYearClose saved", {
+        status: "CONFIRMED",
+        fiscalYearCloseId: updated.id,
+      });
+
+      revalidatePath("/accounting");
+      return NextResponse.json({ success: true, fiscalYearClose: updated });
     }
 
-    const updated = await prisma.fiscalYearClose.update({
-      where: { id: existing.id },
-      data: {
-        status: FiscalYearCloseStatus.CONFIRMED,
-        confirmedAt: new Date(),
-        confirmedById: session.memberId,
-      },
-      include: {
-        confirmedBy: {
-          select: {
-            id: true,
-            displayName: true,
+    // 作成または再計算
+    const statementPayload: Prisma.JsonValue = statement;
+
+    if (existing) {
+      // 更新（再計算）
+      const updated = await prisma.fiscalYearClose.update({
+        where: { id: existing.id },
+        data: {
+          startDate,
+          endDate,
+          totalRevenue: statement.totalRevenue,
+          totalExpense: statement.totalExpense,
+          balance: statement.balance,
+          previousCarryover: statement.previousCarryover,
+          nextCarryover: statement.nextCarryover,
+          statement: statementPayload,
+        },
+        include: {
+          confirmedBy: {
+            select: {
+              id: true,
+              displayName: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    revalidatePath("/accounting");
-    return NextResponse.json({ success: true, fiscalYearClose: updated });
-  }
+      addSentryBreadcrumb("FiscalYearClose saved", {
+        status: "UPDATED",
+        fiscalYearCloseId: updated.id,
+      });
 
-  // 作成または再計算
-  const statementPayload: Prisma.JsonValue = statement;
-
-  if (existing) {
-    // 更新（再計算）
-    const updated = await prisma.fiscalYearClose.update({
-      where: { id: existing.id },
-      data: {
-        startDate,
-        endDate,
-        totalRevenue: statement.totalRevenue,
-        totalExpense: statement.totalExpense,
-        balance: statement.balance,
-        previousCarryover: statement.previousCarryover,
-        nextCarryover: statement.nextCarryover,
-        statement: statementPayload,
-      },
-      include: {
-        confirmedBy: {
-          select: {
-            id: true,
-            displayName: true,
+      revalidatePath("/accounting");
+      return NextResponse.json({ success: true, fiscalYearClose: updated });
+    } else {
+      // 新規作成
+      const created = await prisma.fiscalYearClose.create({
+        data: {
+          groupId: session.groupId,
+          fiscalYear: body.fiscalYear,
+          startDate,
+          endDate,
+          status: FiscalYearCloseStatus.DRAFT,
+          totalRevenue: statement.totalRevenue,
+          totalExpense: statement.totalExpense,
+          balance: statement.balance,
+          previousCarryover: statement.previousCarryover,
+          nextCarryover: statement.nextCarryover,
+          statement: statementPayload,
+        },
+        include: {
+          confirmedBy: {
+            select: {
+              id: true,
+              displayName: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    revalidatePath("/accounting");
-    return NextResponse.json({ success: true, fiscalYearClose: updated });
-  } else {
-    // 新規作成
-    const created = await prisma.fiscalYearClose.create({
-      data: {
-        groupId: session.groupId,
-        fiscalYear: body.fiscalYear,
-        startDate,
-        endDate,
-        status: FiscalYearCloseStatus.DRAFT,
-        totalRevenue: statement.totalRevenue,
-        totalExpense: statement.totalExpense,
-        balance: statement.balance,
-        previousCarryover: statement.previousCarryover,
-        nextCarryover: statement.nextCarryover,
-        statement: statementPayload,
-      },
-      include: {
-        confirmedBy: {
-          select: {
-            id: true,
-            displayName: true,
-          },
-        },
-      },
-    });
+      addSentryBreadcrumb("FiscalYearClose saved", {
+        status: "CREATED",
+        fiscalYearCloseId: created.id,
+      });
 
-    revalidatePath("/accounting");
-    return NextResponse.json({ success: true, fiscalYearClose: created });
+      revalidatePath("/accounting");
+      return NextResponse.json({ success: true, fiscalYearClose: created });
+    }
+  } catch (error) {
+    addSentryBreadcrumb("FiscalYearClose failed", {
+      action,
+      fiscalYear: body.fiscalYear,
+    });
+    captureApiException(error, sentryContext);
+    return NextResponse.json(
+      { error: "年度締め処理でエラーが発生しました。" },
+      { status: 500 }
+    );
   }
 }

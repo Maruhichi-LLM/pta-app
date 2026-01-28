@@ -7,6 +7,7 @@ import {
   parseApprovalFormSchema,
   validateApprovalFormData,
 } from "@/lib/approval-schema";
+import { captureApiException, setApiSentryContext } from "@/lib/sentry";
 
 export async function GET() {
   const session = await getSessionFromCookies();
@@ -129,44 +130,64 @@ export async function POST(request: NextRequest) {
 
   const firstStepOrder = template.route.steps[0].stepOrder;
 
-  const application = await prisma.approvalApplication.create({
-    data: {
-      groupId: session.groupId,
-      templateId: template.id,
-      applicantId: session.memberId,
-      title: body.title.trim(),
-      data: cleaned,
-      status: "PENDING",
-      currentStep: firstStepOrder,
-      assignments: {
-        create: template.route.steps.map((step) => ({
-          stepId: step.id,
-          stepOrder: step.stepOrder,
-          approverRole: step.approverRole,
-          status: step.stepOrder === firstStepOrder ? "IN_PROGRESS" : "WAITING",
-        })),
-      },
-    },
-    include: {
-      template: { select: { id: true, name: true, fields: true } },
-      applicant: { select: { id: true, displayName: true } },
-      assignments: {
-        orderBy: { stepOrder: "asc" },
-        include: {
-          assignedTo: { select: { id: true, displayName: true } },
+  const routePath = new URL(request.url).pathname;
+  const sentryContext = {
+    module: "approval",
+    action: "approval-application-create",
+    route: routePath,
+    method: request.method,
+    groupId: session.groupId,
+    memberId: session.memberId,
+    entity: { templateId: template.id },
+  } as const;
+  setApiSentryContext(sentryContext);
+
+  try {
+    const application = await prisma.approvalApplication.create({
+      data: {
+        groupId: session.groupId,
+        templateId: template.id,
+        applicantId: session.memberId,
+        title: body.title.trim(),
+        data: cleaned,
+        status: "PENDING",
+        currentStep: firstStepOrder,
+        assignments: {
+          create: template.route.steps.map((step) => ({
+            stepId: step.id,
+            stepOrder: step.stepOrder,
+            approverRole: step.approverRole,
+            status: step.stepOrder === firstStepOrder ? "IN_PROGRESS" : "WAITING",
+          })),
         },
       },
-    },
-  });
-
-  return NextResponse.json(
-    {
-      application: {
-        ...application,
-        createdAt: application.createdAt.toISOString(),
-        updatedAt: application.updatedAt.toISOString(),
+      include: {
+        template: { select: { id: true, name: true, fields: true } },
+        applicant: { select: { id: true, displayName: true } },
+        assignments: {
+          orderBy: { stepOrder: "asc" },
+          include: {
+            assignedTo: { select: { id: true, displayName: true } },
+          },
+        },
       },
-    },
-    { status: 201 }
-  );
+    });
+
+    return NextResponse.json(
+      {
+        application: {
+          ...application,
+          createdAt: application.createdAt.toISOString(),
+          updatedAt: application.updatedAt.toISOString(),
+        },
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    captureApiException(error, sentryContext);
+    return NextResponse.json(
+      { error: "申請の作成に失敗しました。" },
+      { status: 500 }
+    );
+  }
 }

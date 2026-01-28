@@ -3,6 +3,7 @@ import {
   AccountType,
   FiscalYearCloseStatus,
   LedgerStatus,
+  Prisma,
   type Account,
   type FiscalYearClose,
   type Group,
@@ -122,7 +123,7 @@ export async function createFiscalYearClose({
   ...overrides
 }: {
   groupId: number;
-} & Partial<FiscalYearClose>) {
+} & Partial<Prisma.FiscalYearCloseUncheckedCreateInput>) {
   return prisma.fiscalYearClose.create({
     data: {
       groupId,

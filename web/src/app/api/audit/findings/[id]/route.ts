@@ -11,6 +11,7 @@ import {
 } from "@prisma/client";
 import { assertWriteRequestSecurity } from "@/lib/security";
 import { recordAuditLog } from "@/lib/audit/logging";
+import { captureApiException, setApiSentryContext } from "@/lib/sentry";
 
 function isFindingStatus(value: unknown): value is AuditFindingStatus {
   return (
@@ -127,30 +128,50 @@ export async function PATCH(
     return NextResponse.json({ error: "指摘が見つかりません。" }, { status: 404 });
   }
 
-  const finding = await prisma.auditFinding.update({
-    where: { id: findingId },
-    data,
-    include: {
-      assignee: { select: { id: true, displayName: true } },
-      createdBy: { select: { id: true, displayName: true } },
-    },
-  });
-
-  await recordAuditLog({
+  const routePath = new URL(request.url).pathname;
+  const sentryContext = {
+    module: "audit",
+    action: "audit-finding-update",
+    route: routePath,
+    method: request.method,
     groupId: session.groupId,
-    actorMemberId: member.id,
-    actionType: AuditActionType.UPDATE,
-    targetType: AuditTargetType.AUDIT_FINDING,
-    targetId: finding.id,
-    beforeJson: previous as unknown as Prisma.JsonValue,
-    afterJson: finding as unknown as Prisma.JsonValue,
-  });
+    memberId: member.id,
+    entity: { findingId },
+  } as const;
+  setApiSentryContext(sentryContext);
 
-  return NextResponse.json({
-    finding: {
-      ...finding,
-      createdAt: finding.createdAt.toISOString(),
-      updatedAt: finding.updatedAt.toISOString(),
-    },
-  });
+  try {
+    const finding = await prisma.auditFinding.update({
+      where: { id: findingId },
+      data,
+      include: {
+        assignee: { select: { id: true, displayName: true } },
+        createdBy: { select: { id: true, displayName: true } },
+      },
+    });
+
+    await recordAuditLog({
+      groupId: session.groupId,
+      actorMemberId: member.id,
+      actionType: AuditActionType.UPDATE,
+      targetType: AuditTargetType.AUDIT_FINDING,
+      targetId: finding.id,
+      beforeJson: previous as unknown as Prisma.JsonValue,
+      afterJson: finding as unknown as Prisma.JsonValue,
+    });
+
+    return NextResponse.json({
+      finding: {
+        ...finding,
+        createdAt: finding.createdAt.toISOString(),
+        updatedAt: finding.updatedAt.toISOString(),
+      },
+    });
+  } catch (error) {
+    captureApiException(error, sentryContext);
+    return NextResponse.json(
+      { error: "監査指摘の更新に失敗しました。" },
+      { status: 500 }
+    );
+  }
 }

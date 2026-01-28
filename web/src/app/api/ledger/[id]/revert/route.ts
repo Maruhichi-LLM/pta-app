@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionFromCookies } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { assertWriteRequestSecurity } from "@/lib/security";
+import { captureApiException, setApiSentryContext } from "@/lib/sentry";
 
 function resolveLedgerId(paramId?: string): number | null {
   if (!paramId) return null;
@@ -44,13 +45,33 @@ export async function POST(
     );
   }
 
-  // 却下された経費を下書きに戻す
-  const updatedLedger = await prisma.ledger.update({
-    where: { id: ledger.id },
-    data: { status: "DRAFT" },
-  });
+  const route = new URL(request.url).pathname;
+  const sentryContext = {
+    module: "accounting",
+    action: "ledger-revert",
+    route,
+    method: request.method,
+    groupId: session.groupId,
+    memberId: session.memberId,
+    entity: { ledgerId: ledger.id },
+  } as const;
+  setApiSentryContext(sentryContext);
 
-  revalidatePath("/accounting");
+  try {
+    // 却下された経費を下書きに戻す
+    const updatedLedger = await prisma.ledger.update({
+      where: { id: ledger.id },
+      data: { status: "DRAFT" },
+    });
 
-  return NextResponse.json({ success: true, ledger: updatedLedger });
+    revalidatePath("/accounting");
+
+    return NextResponse.json({ success: true, ledger: updatedLedger });
+  } catch (error) {
+    captureApiException(error, sentryContext);
+    return NextResponse.json(
+      { error: "下書きへの戻しに失敗しました。" },
+      { status: 500 }
+    );
+  }
 }

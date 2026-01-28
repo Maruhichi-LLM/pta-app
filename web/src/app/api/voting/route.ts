@@ -12,6 +12,7 @@ import {
   VOTING_LIMITS,
   DEFAULT_VOTING_OPTIONS,
 } from "@/lib/voting";
+import { captureApiException, setApiSentryContext } from "@/lib/sentry";
 
 type CreateVotingRequest = {
   title?: string;
@@ -156,41 +157,63 @@ export async function POST(request: Request) {
     );
   }
 
-  const [voting, cardMessage] = await prisma.$transaction(async (tx) => {
-    const createdVoting = await tx.voting.create({
-      data: {
-        groupId: session.groupId,
-        createdByMemberId: session.memberId,
-        title,
-        description: descriptionRaw || null,
-        options,
-        deadlineAt,
-        status: VotingStatus.OPEN,
-        sourceThreadId: sourceThread?.id ?? null,
-        sourceChatMessageId: sourceMessage?.id ?? null,
-      },
-    });
+  const routePath = new URL(request.url).pathname;
+  const sentryContext = {
+    module: "voting",
+    action: "voting-create",
+    route: routePath,
+    method: request.method,
+    groupId: session.groupId,
+    memberId: session.memberId,
+  } as const;
+  setApiSentryContext(sentryContext);
 
-    let createdCardMessage = null;
-    if (sourceThread) {
-      createdCardMessage = await tx.chatMessage.create({
+  try {
+    const [voting, cardMessage] = await prisma.$transaction(async (tx) => {
+      const createdVoting = await tx.voting.create({
         data: {
-          threadId: sourceThread.id,
           groupId: session.groupId,
-          authorId: session.memberId,
-          body: `【投票】${title}`,
-          votingId: createdVoting.id,
+          createdByMemberId: session.memberId,
+          title,
+          description: descriptionRaw || null,
+          options,
+          deadlineAt,
+          status: VotingStatus.OPEN,
+          sourceThreadId: sourceThread?.id ?? null,
+          sourceChatMessageId: sourceMessage?.id ?? null,
         },
       });
+
+      let createdCardMessage = null;
+      if (sourceThread) {
+        createdCardMessage = await tx.chatMessage.create({
+          data: {
+            threadId: sourceThread.id,
+            groupId: session.groupId,
+            authorId: session.memberId,
+            body: `【投票】${title}`,
+            votingId: createdVoting.id,
+          },
+        });
+      }
+
+      return [createdVoting, createdCardMessage] as const;
+    });
+
+    revalidatePath("/voting");
+    if (sourceThread) {
+      revalidatePath(`/threads/${sourceThread.id}`);
     }
 
-    return [createdVoting, createdCardMessage] as const;
-  });
-
-  revalidatePath("/voting");
-  if (sourceThread) {
-    revalidatePath(`/threads/${sourceThread.id}`);
+    return NextResponse.json({ voting, cardMessageId: cardMessage?.id ?? null });
+  } catch (error) {
+    captureApiException(error, sentryContext, {
+      sourceThreadId: sourceThread?.id ?? null,
+      sourceChatMessageId: sourceMessage?.id ?? null,
+    });
+    return NextResponse.json(
+      { error: "投票の作成に失敗しました。" },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({ voting, cardMessageId: cardMessage?.id ?? null });
 }

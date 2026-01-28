@@ -7,6 +7,7 @@ import { ensureModuleEnabled } from "@/lib/modules";
 import { ROLE_ADMIN } from "@/lib/roles";
 import { assertWriteRequestSecurity } from "@/lib/security";
 import { buildResultsFromCounts } from "@/lib/voting";
+import { captureApiException, setApiSentryContext } from "@/lib/sentry";
 
 export async function PATCH(
   request: Request,
@@ -64,31 +65,51 @@ export async function PATCH(
     return NextResponse.json({ success: true });
   }
 
-  const counts = await prisma.votingVote.groupBy({
-    by: ["choiceId"],
-    where: { votingId },
-    _count: { _all: true },
-  });
-  const countMap: Record<string, number> = {};
-  counts.forEach((item) => {
-    countMap[item.choiceId] = item._count._all;
-  });
-  const options = Array.isArray(voting.options)
-    ? (voting.options as { id: string; label: string }[])
-    : [];
-  const { results, total } = buildResultsFromCounts(options, countMap);
+  const routePath = new URL(request.url).pathname;
+  const sentryContext = {
+    module: "voting",
+    action: "voting-close",
+    route: routePath,
+    method: request.method,
+    groupId: session.groupId,
+    memberId: session.memberId,
+    entity: { votingId },
+  } as const;
+  setApiSentryContext(sentryContext);
 
-  await prisma.voting.update({
-    where: { id: votingId },
-    data: {
-      status: VotingStatus.CLOSED,
-      results,
-      totalVotes: total,
-    },
-  });
+  try {
+    const counts = await prisma.votingVote.groupBy({
+      by: ["choiceId"],
+      where: { votingId },
+      _count: { _all: true },
+    });
+    const countMap: Record<string, number> = {};
+    counts.forEach((item) => {
+      countMap[item.choiceId] = item._count._all;
+    });
+    const options = Array.isArray(voting.options)
+      ? (voting.options as { id: string; label: string }[])
+      : [];
+    const { results, total } = buildResultsFromCounts(options, countMap);
 
-  revalidatePath("/voting");
-  revalidatePath(`/voting/${votingId}`);
+    await prisma.voting.update({
+      where: { id: votingId },
+      data: {
+        status: VotingStatus.CLOSED,
+        results,
+        totalVotes: total,
+      },
+    });
 
-  return NextResponse.json({ success: true });
+    revalidatePath("/voting");
+    revalidatePath(`/voting/${votingId}`);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    captureApiException(error, sentryContext);
+    return NextResponse.json(
+      { error: "投票の締切に失敗しました。" },
+      { status: 500 }
+    );
+  }
 }

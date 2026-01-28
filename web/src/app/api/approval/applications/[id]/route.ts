@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionFromCookies } from "@/lib/session";
 import { ensureModuleEnabled } from "@/lib/modules";
 import { assertWriteRequestSecurity } from "@/lib/security";
+import { captureApiException, setApiSentryContext } from "@/lib/sentry";
 
 type ActionPayload = {
   action?: "approve" | "reject";
@@ -107,31 +108,65 @@ export async function PATCH(
 
   const actionStatus = body.action === "approve" ? "APPROVED" : "REJECTED";
 
-  const updatedApplication = await prisma.$transaction(async (tx) => {
-    await tx.approvalAssignment.update({
-      where: { id: currentAssignment.id },
-      data: {
-        status: actionStatus,
-        actedAt: new Date(),
-        comment,
-        assignedToId: session.memberId,
-      },
-    });
+  const routePath = new URL(request.url).pathname;
+  const sentryContext = {
+    module: "approval",
+    action:
+      body.action === "approve"
+        ? "approval-application-approve"
+        : "approval-application-reject",
+    route: routePath,
+    method: request.method,
+    groupId: session.groupId,
+    memberId: session.memberId,
+    entity: { applicationId: application.id },
+  } as const;
+  setApiSentryContext(sentryContext);
 
-    if (body.action === "approve") {
-      const nextAssignment = application.assignments.find(
-        (assignment) => assignment.stepOrder > currentAssignment.stepOrder
-      );
-      if (nextAssignment) {
-        await tx.approvalAssignment.update({
-          where: { id: nextAssignment.id },
-          data: { status: "IN_PROGRESS" },
-        });
+  try {
+    const updatedApplication = await prisma.$transaction(async (tx) => {
+      await tx.approvalAssignment.update({
+        where: { id: currentAssignment.id },
+        data: {
+          status: actionStatus,
+          actedAt: new Date(),
+          comment,
+          assignedToId: session.memberId,
+        },
+      });
+
+      if (body.action === "approve") {
+        const nextAssignment = application.assignments.find(
+          (assignment) => assignment.stepOrder > currentAssignment.stepOrder
+        );
+        if (nextAssignment) {
+          await tx.approvalAssignment.update({
+            where: { id: nextAssignment.id },
+            data: { status: "IN_PROGRESS" },
+          });
+          return tx.approvalApplication.update({
+            where: { id: application.id },
+            data: {
+              currentStep: nextAssignment.stepOrder,
+              status: "PENDING",
+            },
+            include: {
+              template: { select: { id: true, name: true, fields: true } },
+              applicant: { select: { id: true, displayName: true } },
+              assignments: {
+                orderBy: { stepOrder: "asc" },
+                include: {
+                  assignedTo: { select: { id: true, displayName: true } },
+                },
+              },
+            },
+          });
+        }
         return tx.approvalApplication.update({
           where: { id: application.id },
           data: {
-            currentStep: nextAssignment.stepOrder,
-            status: "PENDING",
+            currentStep: null,
+            status: "APPROVED",
           },
           include: {
             template: { select: { id: true, name: true, fields: true } },
@@ -145,11 +180,25 @@ export async function PATCH(
           },
         });
       }
+
+      await tx.approvalAssignment.updateMany({
+        where: {
+          applicationId: application.id,
+          stepOrder: { gt: currentAssignment.stepOrder },
+        },
+        data: {
+          status: "WAITING",
+          assignedToId: null,
+          actedAt: null,
+          comment: null,
+        },
+      });
+
       return tx.approvalApplication.update({
         where: { id: application.id },
         data: {
           currentStep: null,
-          status: "APPROVED",
+          status: "REJECTED",
         },
         include: {
           template: { select: { id: true, name: true, fields: true } },
@@ -162,45 +211,22 @@ export async function PATCH(
           },
         },
       });
-    }
-
-    await tx.approvalAssignment.updateMany({
-      where: {
-        applicationId: application.id,
-        stepOrder: { gt: currentAssignment.stepOrder },
-      },
-      data: {
-        status: "WAITING",
-        assignedToId: null,
-        actedAt: null,
-        comment: null,
-      },
     });
 
-    return tx.approvalApplication.update({
-      where: { id: application.id },
-      data: {
-        currentStep: null,
-        status: "REJECTED",
-      },
-      include: {
-        template: { select: { id: true, name: true, fields: true } },
-        applicant: { select: { id: true, displayName: true } },
-        assignments: {
-          orderBy: { stepOrder: "asc" },
-          include: {
-            assignedTo: { select: { id: true, displayName: true } },
-          },
-        },
+    return NextResponse.json({
+      application: {
+        ...updatedApplication,
+        createdAt: updatedApplication.createdAt.toISOString(),
+        updatedAt: updatedApplication.updatedAt.toISOString(),
       },
     });
-  });
-
-  return NextResponse.json({
-    application: {
-      ...updatedApplication,
-      createdAt: updatedApplication.createdAt.toISOString(),
-      updatedAt: updatedApplication.updatedAt.toISOString(),
-    },
-  });
+  } catch (error) {
+    captureApiException(error, sentryContext, {
+      action: body.action,
+    });
+    return NextResponse.json(
+      { error: "承認処理に失敗しました。" },
+      { status: 500 }
+    );
+  }
 }

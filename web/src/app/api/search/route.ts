@@ -241,6 +241,7 @@ export async function GET(request: NextRequest) {
   if (fallbackCount > 0) {
     rows = fallbackRows.map((row) => ({
       ...row,
+      entityType: row.entityType as SearchEntityType,
       rank: 0,
     }));
   }

@@ -5,6 +5,7 @@ import { getSessionFromCookies } from "@/lib/session";
 import { ensureModuleEnabled } from "@/lib/modules";
 import { assertWriteRequestSecurity } from "@/lib/security";
 import { VOTING_LIMITS } from "@/lib/voting";
+import { captureApiException, setApiSentryContext } from "@/lib/sentry";
 
 type CommentPayload = {
   body?: string;
@@ -59,14 +60,34 @@ export async function POST(
     );
   }
 
-  await prisma.votingComment.create({
-    data: {
-      votingId,
-      body,
-    },
-  });
+  const routePath = new URL(request.url).pathname;
+  const sentryContext = {
+    module: "voting",
+    action: "voting-comment",
+    route: routePath,
+    method: request.method,
+    groupId: session.groupId,
+    memberId: session.memberId,
+    entity: { votingId },
+  } as const;
+  setApiSentryContext(sentryContext);
 
-  revalidatePath(`/voting/${votingId}`);
+  try {
+    await prisma.votingComment.create({
+      data: {
+        votingId,
+        body,
+      },
+    });
 
-  return NextResponse.json({ success: true });
+    revalidatePath(`/voting/${votingId}`);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    captureApiException(error, sentryContext);
+    return NextResponse.json(
+      { error: "コメントの投稿に失敗しました。" },
+      { status: 500 }
+    );
+  }
 }
