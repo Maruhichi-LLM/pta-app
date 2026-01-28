@@ -88,11 +88,6 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const { session, navItems } = await fetchLayoutContext();
-  const navSplitIndex = Math.ceil(navItems.length / 2);
-  const navRows = [
-    navItems.slice(0, navSplitIndex),
-    navItems.slice(navSplitIndex),
-  ];
   return (
     <html lang="en">
       <body
@@ -105,34 +100,27 @@ export default async function RootLayout({
               <Link href="/" className="text-lg font-semibold tracking-wide">
                 Knot
               </Link>
-              <nav className="flex flex-1 flex-col items-center gap-2 text-sm font-medium text-zinc-600">
-                {navRows.map((row, rowIndex) => (
-                  <div
-                    key={`nav-row-${rowIndex}`}
-                    className="flex flex-wrap justify-center gap-3"
-                  >
-                    {row.map((item) =>
-                      item.enabled ? (
-                        <Link
-                          key={item.key}
-                          href={item.href}
-                          className="rounded-full px-3 py-1 transition hover:bg-zinc-100"
-                        >
-                          {item.label}
-                        </Link>
-                      ) : (
-                        <span
-                          key={item.key}
-                          className="rounded-full px-3 py-1 text-zinc-400"
-                          aria-disabled="true"
-                          title="無効化中のモジュールです"
-                        >
-                          {item.label}
-                        </span>
-                      )
-                    )}
-                  </div>
-                ))}
+              <nav className="flex flex-1 items-center justify-center gap-2 text-xs font-medium text-zinc-600">
+                {navItems.map((item) =>
+                  item.enabled ? (
+                    <Link
+                      key={item.key}
+                      href={item.href}
+                      className="whitespace-nowrap rounded-full px-2 py-1 transition hover:bg-zinc-100"
+                    >
+                      {item.label}
+                    </Link>
+                  ) : (
+                    <span
+                      key={item.key}
+                      className="whitespace-nowrap rounded-full px-2 py-1 text-zinc-400"
+                      aria-disabled="true"
+                      title="無効化中のモジュールです"
+                    >
+                      {item.label}
+                    </span>
+                  )
+                )}
               </nav>
               {session ? <GlobalSearch /> : null}
               <AuthButton initialSession={Boolean(session)} />

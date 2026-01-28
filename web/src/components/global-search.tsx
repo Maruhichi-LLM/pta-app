@@ -235,7 +235,7 @@ export function GlobalSearch() {
           setTimeout(() => inputRef.current?.focus(), 0);
         }}
       >
-        <span className="hidden sm:inline">Search Knot</span>
+        <span className="hidden sm:inline">Knot Search</span>
         <span className="inline sm:hidden">Search</span>
         <span className="rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-[11px] text-zinc-400">
           {isMac ? "⌘" : "Ctrl"}+K

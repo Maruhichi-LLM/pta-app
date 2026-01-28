@@ -54,18 +54,7 @@ const EXTENSION_MODULE_METADATA: Record<
   },
 };
 
-const FUTURE_MODULES: StoreEntry[] = [
-  {
-    key: undefined,
-    title: "Knot Approval",
-    description:
-      "会計の承認ステップを自動化するモジュール。記録と証跡をひとつに結びます。",
-    badge: "承認 / Workflow",
-    state: "comingSoon",
-    toggleable: false,
-    note: "βテスト準備中です",
-  },
-];
+const FUTURE_MODULES: StoreEntry[] = [];
 
 function buildStoreEntries(): StoreEntry[] {
   const orderedEntries: StoreEntry[] = STORE_DISPLAY_ORDER.map((key) => {
