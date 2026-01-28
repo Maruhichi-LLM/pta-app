@@ -95,7 +95,7 @@ export function ModuleStoreGrid({
           return (
             <div
               key={entry.title + (entry.key ?? "")}
-              className={`flex h-full flex-col justify-between rounded-3xl border bg-white/80 p-6 shadow-sm backdrop-blur ${
+              className={`flex h-full min-h-[300px] flex-col justify-between rounded-3xl border bg-white/80 p-6 shadow-sm backdrop-blur ${
                 cardMuted ? "opacity-80" : ""
               }`}
             >
