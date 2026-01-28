@@ -9,10 +9,7 @@ import {
   AuditTargetType,
   Prisma,
 } from "@prisma/client";
-import {
-  assertSameOrigin,
-  CSRF_ERROR_MESSAGE,
-} from "@/lib/security";
+import { assertWriteRequestSecurity } from "@/lib/security";
 import { recordAuditLog } from "@/lib/audit/logging";
 
 function parseDate(value: string | null) {
@@ -130,13 +127,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const csrf = assertSameOrigin(request);
-  if (!csrf.ok) {
-    return NextResponse.json(
-      { error: CSRF_ERROR_MESSAGE },
-      { status: 403 }
-    );
-  }
+  const guard = assertWriteRequestSecurity(request);
+  if (guard) return guard;
 
   const context = await getAuditViewerForApi();
   if (!context) {

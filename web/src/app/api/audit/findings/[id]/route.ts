@@ -9,10 +9,7 @@ import {
   AuditTargetType,
   Prisma,
 } from "@prisma/client";
-import {
-  assertSameOrigin,
-  CSRF_ERROR_MESSAGE,
-} from "@/lib/security";
+import { assertWriteRequestSecurity } from "@/lib/security";
 import { recordAuditLog } from "@/lib/audit/logging";
 
 function isFindingStatus(value: unknown): value is AuditFindingStatus {
@@ -57,13 +54,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const csrf = assertSameOrigin(request);
-  if (!csrf.ok) {
-    return NextResponse.json(
-      { error: CSRF_ERROR_MESSAGE },
-      { status: 403 }
-    );
-  }
+  const guard = assertWriteRequestSecurity(request);
+  if (guard) return guard;
 
   const context = await getAuditViewerForApi();
   if (!context) {

@@ -3,17 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { getSessionFromCookies } from "@/lib/session";
 import { ensureModuleEnabled } from "@/lib/modules";
 import { ensureFreeThread } from "@/lib/chat";
-import {
-  assertSameOrigin,
-  CSRF_ERROR_MESSAGE,
-  RATE_LIMIT_ERROR_MESSAGE,
-  checkRateLimit,
-  getRateLimitRule,
-  buildRateLimitKey,
-} from "@/lib/security";
+import { assertWriteRequestSecurity } from "@/lib/security";
 
-async function getSessionOrForbidden() {
-  const session = await getSessionFromCookies();
+async function getSessionOrForbidden(
+  sessionOverride?: Awaited<ReturnType<typeof getSessionFromCookies>> | null
+) {
+  const session = sessionOverride ?? (await getSessionFromCookies());
   if (!session) {
     return null;
   }
@@ -50,39 +45,14 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const csrf = assertSameOrigin(req);
-  if (!csrf.ok) {
-    return NextResponse.json(
-      { error: CSRF_ERROR_MESSAGE },
-      { status: 403 }
-    );
-  }
-
-  const session = await getSessionOrForbidden();
+  const sessionSeed = await getSessionFromCookies();
+  const guard = assertWriteRequestSecurity(req, {
+    memberId: sessionSeed?.memberId,
+  });
+  if (guard) return guard;
+  const session = await getSessionOrForbidden(sessionSeed);
   if (!session) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const { limit, windowSec } = getRateLimitRule("write");
-  const rate = checkRateLimit({
-    key: buildRateLimitKey({
-      scope: "write",
-      request: req,
-      memberId: session.memberId,
-    }),
-    limit,
-    windowSec,
-  });
-  if (!rate.ok) {
-    return NextResponse.json(
-      { error: RATE_LIMIT_ERROR_MESSAGE },
-      {
-        status: 429,
-        headers: rate.retryAfterSec
-          ? { "Retry-After": String(rate.retryAfterSec) }
-          : undefined,
-      }
-    );
   }
 
   const payload = (await req.json().catch(() => ({}))) as { body?: string };

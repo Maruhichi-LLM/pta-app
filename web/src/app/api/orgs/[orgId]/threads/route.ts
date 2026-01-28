@@ -5,14 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionFromCookies } from "@/lib/session";
 import { ensureFreeThread, findExistingThreadForSource } from "@/lib/chat";
 import { upsertSearchIndex } from "@/lib/search-index";
-import {
-  assertSameOrigin,
-  CSRF_ERROR_MESSAGE,
-  RATE_LIMIT_ERROR_MESSAGE,
-  checkRateLimit,
-  getRateLimitRule,
-  buildRateLimitKey,
-} from "@/lib/security";
+import { assertWriteRequestSecurity } from "@/lib/security";
 
 const SOURCE_TYPE_LABELS: Record<ThreadSourceType, string> = {
   TODO: "ToDo",
@@ -30,8 +23,11 @@ type ThreadPayload = {
   sourceId?: number | string | null;
 };
 
-async function requireOrgSession(orgIdParam: string) {
-  const session = await getSessionFromCookies();
+async function requireOrgSession(
+  orgIdParam: string,
+  sessionOverride?: Awaited<ReturnType<typeof getSessionFromCookies>> | null
+) {
+  const session = sessionOverride ?? (await getSessionFromCookies());
   if (!session) {
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
@@ -68,42 +64,18 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ orgId: string }> }
 ) {
-  const csrf = assertSameOrigin(request);
-  if (!csrf.ok) {
-    return NextResponse.json(
-      { error: CSRF_ERROR_MESSAGE },
-      { status: 403 }
-    );
-  }
-
+  const session = await getSessionFromCookies();
+  const guard = assertWriteRequestSecurity(request, {
+    memberId: session?.memberId,
+  });
+  if (guard) return guard;
   const { orgId: orgIdParam } = await params;
-  const context = await requireOrgSession(orgIdParam);
+  const context = await requireOrgSession(orgIdParam, session);
   if ("error" in context) {
     return context.error;
   }
   const { orgId, session } = context;
 
-  const { limit, windowSec } = getRateLimitRule("write");
-  const rate = checkRateLimit({
-    key: buildRateLimitKey({
-      scope: "write",
-      request,
-      memberId: session.memberId,
-    }),
-    limit,
-    windowSec,
-  });
-  if (!rate.ok) {
-    return NextResponse.json(
-      { error: RATE_LIMIT_ERROR_MESSAGE },
-      {
-        status: 429,
-        headers: rate.retryAfterSec
-          ? { "Retry-After": String(rate.retryAfterSec) }
-          : undefined,
-      }
-    );
-  }
   const payload = (await request.json().catch(() => ({}))) as ThreadPayload;
   const sourceType = payload.sourceType as ThreadSourceType | undefined;
   if (

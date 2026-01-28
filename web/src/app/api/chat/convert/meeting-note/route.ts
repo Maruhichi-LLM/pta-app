@@ -4,14 +4,7 @@ import {
   loadChatMessageForConversion,
 } from "@/lib/chat-conversions";
 import { getSessionFromCookies } from "@/lib/session";
-import {
-  assertSameOrigin,
-  CSRF_ERROR_MESSAGE,
-  RATE_LIMIT_ERROR_MESSAGE,
-  checkRateLimit,
-  getRateLimitRule,
-  buildRateLimitKey,
-} from "@/lib/security";
+import { assertWriteRequestSecurity } from "@/lib/security";
 
 type Payload = {
   chatMessageId?: number | string;
@@ -26,39 +19,13 @@ function parseMessageId(value: number | string | undefined) {
 }
 
 export async function POST(request: NextRequest) {
-  const csrf = assertSameOrigin(request);
-  if (!csrf.ok) {
-    return NextResponse.json(
-      { error: CSRF_ERROR_MESSAGE },
-      { status: 403 }
-    );
-  }
-
   const session = await getSessionFromCookies();
+  const guard = assertWriteRequestSecurity(request, {
+    memberId: session?.memberId,
+  });
+  if (guard) return guard;
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { limit, windowSec } = getRateLimitRule("write");
-  const rate = checkRateLimit({
-    key: buildRateLimitKey({
-      scope: "write",
-      request,
-      memberId: session.memberId,
-    }),
-    limit,
-    windowSec,
-  });
-  if (!rate.ok) {
-    return NextResponse.json(
-      { error: RATE_LIMIT_ERROR_MESSAGE },
-      {
-        status: 429,
-        headers: rate.retryAfterSec
-          ? { "Retry-After": String(rate.retryAfterSec) }
-          : undefined,
-      }
-    );
   }
   const payload = (await request.json().catch(() => ({}))) as Payload;
   const messageId = parseMessageId(payload.chatMessageId as number | string);

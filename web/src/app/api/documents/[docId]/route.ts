@@ -10,14 +10,7 @@ import {
   saveUploadedDocumentFile,
 } from "@/lib/document-storage";
 import { upsertSearchIndex, deleteSearchIndex } from "@/lib/search-index";
-import {
-  assertSameOrigin,
-  CSRF_ERROR_MESSAGE,
-  RATE_LIMIT_ERROR_MESSAGE,
-  checkRateLimit,
-  getRateLimitRule,
-  buildRateLimitKey,
-} from "@/lib/security";
+import { assertWriteRequestSecurity } from "@/lib/security";
 
 async function loadDocument(docId: number) {
   return prisma.document.findUnique({
@@ -137,39 +130,13 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ docId: string }> }
 ) {
-  const csrf = assertSameOrigin(request);
-  if (!csrf.ok) {
-    return NextResponse.json(
-      { error: CSRF_ERROR_MESSAGE },
-      { status: 403 }
-    );
-  }
-
   const session = await getSessionFromCookies();
+  const guard = assertWriteRequestSecurity(request, {
+    memberId: session?.memberId,
+  });
+  if (guard) return guard;
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { limit, windowSec } = getRateLimitRule("write");
-  const rate = checkRateLimit({
-    key: buildRateLimitKey({
-      scope: "write",
-      request,
-      memberId: session.memberId,
-    }),
-    limit,
-    windowSec,
-  });
-  if (!rate.ok) {
-    return NextResponse.json(
-      { error: RATE_LIMIT_ERROR_MESSAGE },
-      {
-        status: 429,
-        headers: rate.retryAfterSec
-          ? { "Retry-After": String(rate.retryAfterSec) }
-          : undefined,
-      }
-    );
   }
   const { docId: docIdString } = await params;
   const docId = Number(docIdString);
@@ -254,15 +221,11 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ docId: string }> }
 ) {
-  const csrf = assertSameOrigin(request);
-  if (!csrf.ok) {
-    return NextResponse.json(
-      { error: CSRF_ERROR_MESSAGE },
-      { status: 403 }
-    );
-  }
-
   const session = await getSessionFromCookies();
+  const guard = assertWriteRequestSecurity(request, {
+    memberId: session?.memberId,
+  });
+  if (guard) return guard;
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -280,28 +243,6 @@ export async function DELETE(
     return NextResponse.json(
       { error: "管理者のみ削除できます。" },
       { status: 403 }
-    );
-  }
-
-  const { limit, windowSec } = getRateLimitRule("write");
-  const rate = checkRateLimit({
-    key: buildRateLimitKey({
-      scope: "write",
-      request,
-      memberId: session.memberId,
-    }),
-    limit,
-    windowSec,
-  });
-  if (!rate.ok) {
-    return NextResponse.json(
-      { error: RATE_LIMIT_ERROR_MESSAGE },
-      {
-        status: 429,
-        headers: rate.retryAfterSec
-          ? { "Retry-After": String(rate.retryAfterSec) }
-          : undefined,
-      }
     );
   }
 

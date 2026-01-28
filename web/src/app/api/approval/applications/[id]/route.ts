@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionFromCookies } from "@/lib/session";
 import { ensureModuleEnabled } from "@/lib/modules";
-import {
-  assertSameOrigin,
-  CSRF_ERROR_MESSAGE,
-} from "@/lib/security";
+import { assertWriteRequestSecurity } from "@/lib/security";
 
 type ActionPayload = {
   action?: "approve" | "reject";
@@ -21,15 +18,11 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const csrf = assertSameOrigin(request);
-  if (!csrf.ok) {
-    return NextResponse.json(
-      { error: CSRF_ERROR_MESSAGE },
-      { status: 403 }
-    );
-  }
-
   const session = await getSessionFromCookies();
+  const guard = assertWriteRequestSecurity(request, {
+    memberId: session?.memberId,
+  });
+  if (guard) return guard;
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
