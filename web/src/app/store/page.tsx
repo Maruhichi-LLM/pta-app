@@ -31,6 +31,7 @@ const STORE_DISPLAY_ORDER: AllModuleKey[] = [
   "export",
   "approval",
   "audit",
+  "insight",
   "management",
   "store",
 ];
@@ -63,16 +64,6 @@ const FUTURE_MODULES: StoreEntry[] = [
     state: "comingSoon",
     toggleable: false,
     note: "βテスト準備中です",
-  },
-  {
-    key: undefined,
-    title: "Knot Insights",
-    description:
-      "モジュール横断の指標を提示し、団体運営の改善ポイントを可視化します。",
-    badge: "分析 / Insight",
-    state: "locked",
-    toggleable: false,
-    note: "有料オプションとして計画中",
   },
 ];
 

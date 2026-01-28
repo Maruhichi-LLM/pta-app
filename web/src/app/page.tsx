@@ -70,12 +70,13 @@ export default async function RootPage() {
     "accounting",
     "record",
     "document",
-    "export",
-    "approval",
-    "audit",
-    "management",
-    "store",
-  ];
+  "export",
+  "approval",
+  "audit",
+  "insight",
+  "management",
+  "store",
+];
 
   return (
     <div className="min-h-screen bg-transparent py-16">

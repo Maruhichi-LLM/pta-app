@@ -71,6 +71,7 @@ async function fetchLayoutContext() {
     "export",
     "approval",
     "audit",
+    "insight",
     "management",
     "store",
   ];

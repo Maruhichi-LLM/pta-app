@@ -72,6 +72,11 @@ export const MODULE_METADATA: Record<AllModuleKey, ModuleMetadata> = {
       "会計・活動の監査を計画し、指摘事項や改善提案を記録できるガバナンスモジュールです。",
     badge: "監査 / Governance",
   },
+  insight: {
+    description:
+      "団体運営の状態をやわらかく可視化し、気づきにつながるヒントを届けます。",
+    badge: "気づき / Insight",
+  },
   "event-budget": {
     description:
       "イベントごとの収入・支出を個別に管理し、本会計に取り込む拡張機能です。",
