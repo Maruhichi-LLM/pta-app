@@ -365,6 +365,7 @@ export default async function DashboardPage() {
       groupName={member.group.name}
       memberName={member.displayName}
       memberRoleLabel={roleLabel}
+      groupLogoUrl={member.group.logoUrl}
     >
       <div className="space-y-6 lg:grid lg:grid-cols-12 lg:gap-6 lg:space-y-0">
         <div className="lg:col-span-7 space-y-6">

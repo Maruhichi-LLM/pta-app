@@ -1,4 +1,7 @@
 import Link from "next/link";
+import path from "node:path";
+import { promises as fs } from "node:fs";
+import crypto from "node:crypto";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionFromCookies } from "@/lib/session";
@@ -10,6 +13,7 @@ import {
   ROLE_MEMBER,
 } from "@/lib/roles";
 import { ensureModuleEnabled } from "@/lib/modules";
+import { GroupAvatar } from "@/components/group-avatar";
 
 const ROLE_OPTIONS = [
   ROLE_ADMIN,
@@ -24,6 +28,12 @@ const ROLE_LABELS: Record<string, string> = {
   [ROLE_AUDITOR]: "監査役",
   [ROLE_MEMBER]: "メンバー",
 };
+
+const MAX_LOGO_FILE_SIZE = 5 * 1024 * 1024;
+
+function getGroupLogoUploadDir() {
+  return path.join(process.cwd(), "public", "uploads", "groups");
+}
 
 function generateInviteCodeValue() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -67,6 +77,43 @@ async function requireAdminSession() {
     throw new Error("権限がありません。");
   }
   return { session, member };
+}
+
+async function updateGroupProfileAction(formData: FormData) {
+  "use server";
+  const { session } = await requireAdminSession();
+  const name = (formData.get("groupName") as string | null)?.trim();
+  const file = formData.get("logo");
+
+  let logoUrl: string | undefined;
+  if (file instanceof File && file.size > 0) {
+    if (file.type && !file.type.startsWith("image/")) {
+      throw new Error("画像ファイルを選択してください。");
+    }
+    if (file.size > MAX_LOGO_FILE_SIZE) {
+      throw new Error("ロゴ画像は5MB以下にしてください。");
+    }
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const ext = path.extname(file.name) || "";
+    const safeExt = ext.slice(0, 8);
+    const fileName = `${session.groupId}-${crypto.randomUUID()}${safeExt}`;
+    const uploadDir = getGroupLogoUploadDir();
+    await fs.mkdir(uploadDir, { recursive: true });
+    const absolutePath = path.join(uploadDir, fileName);
+    await fs.writeFile(absolutePath, buffer);
+    logoUrl = `/uploads/groups/${fileName}`;
+  }
+
+  await prisma.group.update({
+    where: { id: session.groupId },
+    data: {
+      name: name && name.length > 0 ? name : undefined,
+      ...(logoUrl ? { logoUrl } : {}),
+    },
+  });
+
+  revalidatePath("/home");
+  revalidatePath("/management");
 }
 
 async function createInviteCodeAction(formData: FormData) {
@@ -199,6 +246,57 @@ export default async function ManagementPage() {
 
         {canManage ? (
           <>
+            <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-zinc-900">団体情報</h2>
+              <p className="mt-2 text-sm text-zinc-600">
+                団体ロゴや写真を登録すると、ダッシュボードに表示されます。
+              </p>
+              <form
+                action={updateGroupProfileAction}
+                className="mt-4 grid gap-4 md:grid-cols-[auto,1fr]"
+              >
+                <div className="flex items-center gap-4">
+                  <GroupAvatar
+                    name={data.group.name}
+                    logoUrl={data.group.logoUrl}
+                    sizeClassName="h-12 w-12"
+                  />
+                  <div className="text-sm text-zinc-500">
+                    40〜48px の丸型表示になります。
+                  </div>
+                </div>
+                <div className="grid gap-4">
+                  <label className="block text-sm text-zinc-600">
+                    団体名
+                    <input
+                      name="groupName"
+                      defaultValue={data.group.name}
+                      className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    />
+                  </label>
+                  <label className="block text-sm text-zinc-600">
+                    ロゴ画像
+                    <input
+                      type="file"
+                      name="logo"
+                      accept="image/*"
+                      className="mt-1 w-full rounded-lg border border-dashed border-zinc-300 px-3 py-2"
+                    />
+                    <span className="mt-1 block text-xs text-zinc-500">
+                      PNG/JPG/WebP 推奨、5MBまで。
+                    </span>
+                  </label>
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-700"
+                    >
+                      団体情報を保存
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </section>
             <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-zinc-900">
                 メンバー招待
