@@ -8,5 +8,5 @@ export default async function ApprovalTemplatesPage() {
     redirect("/join");
   }
   await ensureModuleEnabled(session.groupId, "approval");
-  redirect("/approval/applications");
+  redirect("/workflow/applications");
 }

@@ -35,6 +35,7 @@ model Group {
   approvalTemplates    ApprovalTemplate[]
   approvalRoutes       ApprovalRoute[]
   approvalApplications ApprovalApplication[]
+  announcements        GroupAnnouncement[]
   votings              Voting[]
   searchIndexes        SearchIndex[]
 }
@@ -68,6 +69,7 @@ model Member {
   assignedAuditFindings   AuditFinding[]        @relation("AuditFindingAssignee")
   approvalApplications    ApprovalApplication[] @relation("ApplicationApplicant")
   approvalAssignments     ApprovalAssignment[]
+  createdAnnouncements    GroupAnnouncement[]   @relation("AnnouncementCreatedBy")
   votingsCreated          Voting[]             @relation("VotingCreatedBy")
   records                Record[]              @relation("RecordCreatedBy")
 }
@@ -364,6 +366,20 @@ enum DocumentCategory {
   FINANCE
   MEETING_NOTE
   OTHER
+}
+
+model GroupAnnouncement {
+  id                Int      @id @default(autoincrement())
+  groupId           Int
+  group             Group    @relation(fields: [groupId], references: [id])
+  title             String
+  content           String
+  createdByMemberId Int
+  createdBy         Member   @relation("AnnouncementCreatedBy", fields: [createdByMemberId], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([groupId, updatedAt])
 }
 
 enum RecordSourceType {

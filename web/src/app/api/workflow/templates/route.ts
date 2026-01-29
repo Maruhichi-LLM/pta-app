@@ -4,7 +4,7 @@ import { getSessionFromCookies } from "@/lib/session";
 import { ROLE_ADMIN } from "@/lib/roles";
 import { ensureModuleEnabled, isModuleEnabled } from "@/lib/modules";
 import { assertWriteRequestSecurity } from "@/lib/security";
-import { parseApprovalFormSchema } from "@/lib/approval-schema";
+import { parseApprovalFormSchema } from "@/lib/workflow-schema";
 import { captureApiException, setApiSentryContext } from "@/lib/sentry";
 
 export async function GET() {

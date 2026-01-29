@@ -17,6 +17,7 @@ import {
   type AnnouncementPreview,
 } from "@/components/dashboard/group-now-card";
 import { AdminAlertsCard, type AdminAlertItem } from "@/components/dashboard/admin-alerts-card";
+import { AnnouncementCreateCard } from "@/components/dashboard/announcement-create-card";
 
 const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
   month: "numeric",
@@ -114,7 +115,7 @@ export default async function DashboardPage() {
     memberCount,
     accountingSetting,
     fiscalYearClose,
-    announcementRaw,
+    announcementsRaw,
     approvalRouteCount,
     staleApprovalCount,
   ] = await Promise.all([
@@ -186,9 +187,10 @@ export default async function DashboardPage() {
       },
       select: { status: true },
     }),
-    prisma.document.findFirst({
-      where: { groupId: session.groupId, category: "OTHER" },
+    prisma.groupAnnouncement.findMany({
+      where: { groupId: session.groupId },
       orderBy: { updatedAt: "desc" },
+      take: 3,
       select: { id: true, title: true, updatedAt: true },
     }),
     isAdmin
@@ -279,16 +281,14 @@ export default async function DashboardPage() {
     };
   })();
 
-  const announcement: AnnouncementPreview | null = announcementRaw
-    ? {
-        id: announcementRaw.id,
-        title: announcementRaw.title,
-        updatedLabel: `${dateFormatter.format(
-          announcementRaw.updatedAt
-        )} 更新`,
-        href: `/documents/${announcementRaw.id}`,
-      }
-    : null;
+  const announcements: AnnouncementPreview[] = announcementsRaw.map(
+    (announcement) => ({
+      id: announcement.id,
+      title: announcement.title,
+      updatedLabel: `${dateFormatter.format(announcement.updatedAt)} 更新`,
+      href: `/announcements#announcement-${announcement.id}`,
+    })
+  );
 
   const adminAlerts: AdminAlertItem[] = [];
   if (isAdmin) {
@@ -312,7 +312,7 @@ export default async function DashboardPage() {
         id: "approval-route",
         title: "承認ルートが未設定です",
         description: "申請を回す前にルートを作成してください。",
-        href: "/approval/routes",
+        href: "/workflow/routes",
       });
     }
     if (memberCount <= 1) {
@@ -328,7 +328,7 @@ export default async function DashboardPage() {
         id: "approval-stale",
         title: "承認が滞留しています",
         description: `${staleApprovalCount} 件が1週間以上止まっています。`,
-        href: "/approval",
+        href: "/workflow",
       });
     }
     if (nextEvent && memberCount > 0) {
@@ -367,8 +367,10 @@ export default async function DashboardPage() {
           <GroupNowCard
             nextEvent={nextEvent}
             accounting={accountingStatus}
-            announcement={announcement}
+            announcements={announcements}
+            canPostAnnouncement={isAdmin}
           />
+          {isAdmin ? <AnnouncementCreateCard /> : null}
           {isAdmin && adminAlerts.length > 0 ? (
             <AdminAlertsCard alerts={adminAlerts} />
           ) : null}

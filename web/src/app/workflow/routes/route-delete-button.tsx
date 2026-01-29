@@ -14,12 +14,12 @@ export function RouteDeleteButton({ routeId }: Props) {
   async function handleDelete() {
     if (submitting) return;
     const ok = window.confirm(
-      "この承認ルートを削除しますか？テンプレートで使用中の場合は削除できません。"
+      "この承認ルートを削除しますか？申請で使用中の場合は削除できません。"
     );
     if (!ok) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/approval/routes/${routeId}`, {
+      const res = await fetch(`/api/workflow/routes/${routeId}`, {
         method: "DELETE",
       });
       if (!res.ok) {

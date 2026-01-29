@@ -6,7 +6,7 @@ import { assertWriteRequestSecurity } from "@/lib/security";
 import {
   validateApprovalFormData,
   DEFAULT_APPROVAL_FORM_SCHEMA,
-} from "@/lib/approval-schema";
+} from "@/lib/workflow-schema";
 import { captureApiException, setApiSentryContext } from "@/lib/sentry";
 
 export async function GET() {

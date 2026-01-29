@@ -58,7 +58,7 @@ export default async function ApprovalLandingPage() {
         </header>
         <div className="grid gap-4 md:grid-cols-2">
           <Link
-            href="/approval/applications"
+            href="/workflow/applications"
             className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition hover:border-sky-200 hover:shadow"
           >
             <h2 className="text-lg font-semibold text-zinc-900">申請と承認</h2>
@@ -71,7 +71,7 @@ export default async function ApprovalLandingPage() {
           </Link>
           {isAdmin ? (
             <Link
-              href="/approval/routes"
+              href="/workflow/routes"
               className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition hover:border-sky-200 hover:shadow"
             >
               <h2 className="text-lg font-semibold text-zinc-900">承認ルート</h2>
@@ -86,7 +86,7 @@ export default async function ApprovalLandingPage() {
         </div>
         {!isAdmin ? (
           <p className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-4 text-sm text-zinc-600">
-            承認ルートやテンプレートの追加は管理者のみが実行できます。
+            承認ルートの追加は管理者のみが実行できます。
           </p>
         ) : null}
       </div>

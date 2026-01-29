@@ -28,7 +28,8 @@ export type AnnouncementPreview = {
 type Props = {
   nextEvent: GroupEventSummary | null;
   accounting: AccountingStatusSummary;
-  announcement: AnnouncementPreview | null;
+  announcements: AnnouncementPreview[];
+  canPostAnnouncement?: boolean;
 };
 
 const accountingToneStyles = {
@@ -37,12 +38,20 @@ const accountingToneStyles = {
   bad: "text-rose-700 bg-rose-50",
 } as const;
 
-export function GroupNowCard({ nextEvent, accounting, announcement }: Props) {
+export function GroupNowCard({
+  nextEvent,
+  accounting,
+  announcements,
+  canPostAnnouncement = false,
+}: Props) {
   return (
     <DashboardCard title="団体の今" actionHref="/events">
       <NextEventSummary nextEvent={nextEvent} />
       <AccountingStatusSummaryView status={accounting} />
-      <PinnedAnnouncementPreview announcement={announcement} />
+      <PinnedAnnouncementPreview
+        announcements={announcements}
+        canPostAnnouncement={canPostAnnouncement}
+      />
     </DashboardCard>
   );
 }
@@ -137,41 +146,59 @@ export function AccountingStatusSummaryView({
 }
 
 export function PinnedAnnouncementPreview({
-  announcement,
+  announcements,
+  canPostAnnouncement,
 }: {
-  announcement: AnnouncementPreview | null;
+  announcements: AnnouncementPreview[];
+  canPostAnnouncement: boolean;
 }) {
   return (
     <section>
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-zinc-900">お知らせ</h3>
         <Link
-          href="/documents"
+          href="/announcements"
           className="text-xs font-semibold text-sky-600 hover:text-sky-500"
         >
           お知らせを見る
         </Link>
       </div>
       <div className="mt-3">
-        {announcement ? (
-          <Link
-            href={announcement.href}
-            className="block rounded-xl border border-zinc-100 bg-zinc-50 p-4 text-sm transition hover:border-sky-200 hover:bg-sky-50"
-          >
-            <p className="text-xs text-zinc-500">{announcement.updatedLabel}</p>
-            <p className="mt-1 text-base font-semibold text-zinc-900">
-              {announcement.title}
-            </p>
-          </Link>
+        {announcements.length > 0 ? (
+          <div className="space-y-2">
+            {announcements.map((announcement) => (
+              <Link
+                key={announcement.id}
+                href={announcement.href}
+                className="block text-sm transition hover:text-sky-700"
+              >
+                <p className="text-xs text-zinc-500">
+                  {announcement.updatedLabel}
+                </p>
+                <p className="mt-0.5 text-sm font-semibold text-zinc-900">
+                  {announcement.title}
+                </p>
+              </Link>
+            ))}
+          </div>
         ) : (
           <div className="rounded-xl border border-dashed border-zinc-200 p-4 text-sm text-zinc-500">
             <p>お知らせはありません</p>
-            <Link
-              href="/documents"
-              className="mt-2 inline-flex text-xs font-semibold text-sky-600 hover:text-sky-500"
-            >
-              お知らせを投稿 →
-            </Link>
+            {canPostAnnouncement ? (
+              <Link
+                href="/announcements"
+                className="mt-2 inline-flex text-xs font-semibold text-sky-600 hover:text-sky-500"
+              >
+                お知らせを投稿 →
+              </Link>
+            ) : (
+              <Link
+                href="/announcements"
+                className="mt-2 inline-flex text-xs font-semibold text-sky-600 hover:text-sky-500"
+              >
+                お知らせ一覧へ →
+              </Link>
+            )}
           </div>
         )}
       </div>

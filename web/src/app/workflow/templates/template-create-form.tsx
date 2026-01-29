@@ -2,7 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { ApprovalFieldType } from "@/lib/approval-schema";
+import type { ApprovalFieldType } from "@/lib/workflow-schema";
 
 export type RouteOption = {
   id: number;
@@ -99,7 +99,7 @@ export function TemplateCreateForm({ routes }: { routes: RouteOption[] }) {
       <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
         先に承認ルートを作成してください。{" "}
         <a
-          href="/approval/routes"
+          href="/workflow/routes"
           className="font-semibold text-amber-900 underline underline-offset-2"
         >
           承認ルート管理へ移動
@@ -119,7 +119,7 @@ export function TemplateCreateForm({ routes }: { routes: RouteOption[] }) {
         routeId,
         fields: useAdvancedJson ? JSON.parse(rawJson) : { items: normalizedFields },
       };
-      const res = await fetch("/api/approval/templates", {
+      const res = await fetch("/api/workflow/templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

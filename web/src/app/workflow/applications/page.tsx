@@ -4,7 +4,7 @@ import { getSessionFromCookies } from "@/lib/session";
 import { ensureModuleEnabled } from "@/lib/modules";
 import { ApplicationCreateForm, RouteOption } from "./application-create-form";
 import { ApplicationActionButtons } from "./application-action-buttons";
-import { DEFAULT_APPROVAL_FORM_SCHEMA } from "@/lib/approval-schema";
+import { DEFAULT_APPROVAL_FORM_SCHEMA } from "@/lib/workflow-schema";
 
 const STATUS_LABELS = {
   DRAFT: "下書き",
@@ -99,7 +99,7 @@ export default async function ApprovalApplicationsPage() {
         <section>
           <h2 className="text-lg font-semibold text-zinc-900">新規申請</h2>
           <p className="text-sm text-zinc-500">
-            テンプレートを選択して必要事項を入力すると、承認ルートに沿って自動的に回覧されます。
+            承認ルートを選択して必要事項を入力すると、自動的に回覧されます。
           </p>
           <div className="mt-4">
             <ApplicationCreateForm routes={routeOptions} />

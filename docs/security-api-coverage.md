@@ -29,10 +29,10 @@
 | --- | --- | --- | --- |
 | POST | /api/accounting/carryover | yes |  |
 | POST | /api/accounting/fiscal-year-close | yes |  |
-| POST | /api/approval/applications | yes |  |
-| PATCH | /api/approval/applications/[id] | yes |  |
-| POST | /api/approval/routes | yes |  |
-| POST | /api/approval/templates | yes |  |
+| POST | /api/workflow/applications | yes |  |
+| PATCH | /api/workflow/applications/[id] | yes |  |
+| POST | /api/workflow/routes | yes |  |
+| POST | /api/workflow/templates | yes |  |
 | POST | /api/audit/findings | yes | IP-based rate limit (session取得前にguard実行) |
 | PATCH | /api/audit/findings/[id] | yes | IP-based rate limit (session取得前にguard実行) |
 | POST | /api/audit/run-internal-controls | yes | IP-based rate limit (session取得前にguard実行) |

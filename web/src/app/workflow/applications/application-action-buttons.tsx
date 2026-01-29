@@ -17,7 +17,7 @@ export function ApplicationActionButtons({ applicationId }: Props) {
     setSubmitting(action);
     setError(null);
     try {
-      const response = await fetch(`/api/approval/applications/${applicationId}`, {
+      const response = await fetch(`/api/workflow/applications/${applicationId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

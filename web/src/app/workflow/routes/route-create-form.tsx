@@ -45,7 +45,19 @@ type DragPayload =
   | { type: "condition"; kind: "amount" }
   | { type: "step"; index: number };
 
-const SAMPLE_ROUTES = [
+type SampleStep = {
+  approverRole: string;
+  requireAll: boolean;
+  conditionBuilder?: ConditionBuilder;
+};
+
+type SampleRoute = {
+  label: string;
+  description: string;
+  steps: SampleStep[];
+};
+
+const SAMPLE_ROUTES: SampleRoute[] = [
   {
     label: "備品購入（1万円未満）",
     description: "会計担当のみで確認する少額備品フロー。",
@@ -77,7 +89,7 @@ const SAMPLE_ROUTES = [
       { approverRole: "AUDITOR", requireAll: false },
     ],
   },
-] as const;
+];
 
 export function RouteCreateForm() {
   const router = useRouter();
@@ -170,7 +182,7 @@ export function RouteCreateForm() {
         })),
       };
 
-      const res = await fetch("/api/approval/routes", {
+      const res = await fetch("/api/workflow/routes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

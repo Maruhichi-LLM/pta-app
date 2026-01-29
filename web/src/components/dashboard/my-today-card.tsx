@@ -144,7 +144,7 @@ export function MyApprovalsPreview({
           あなたの承認待ち
         </h3>
         <Link
-          href="/approval/applications"
+          href="/workflow/applications"
           className="text-xs font-semibold text-sky-600 hover:text-sky-500"
         >
           承認へ
@@ -155,7 +155,7 @@ export function MyApprovalsPreview({
           <div className="rounded-xl border border-dashed border-zinc-200 p-4 text-sm text-zinc-500">
             <p>承認待ちはありません</p>
             <Link
-              href="/approval/applications"
+              href="/workflow/applications"
               className="mt-2 inline-flex text-xs font-semibold text-sky-600 hover:text-sky-500"
             >
               申請一覧へ →

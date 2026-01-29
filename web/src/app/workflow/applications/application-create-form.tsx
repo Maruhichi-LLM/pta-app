@@ -7,7 +7,7 @@ import {
   ApprovalFormValues,
   buildInitialValues,
   DEFAULT_APPROVAL_FORM_SCHEMA,
-} from "@/lib/approval-schema";
+} from "@/lib/workflow-schema";
 
 export type RouteOption = {
   id: number;
@@ -58,7 +58,7 @@ export function ApplicationCreateForm({ routes }: Props) {
     setSubmitting(true);
     setError(null);
     try {
-      const response = await fetch("/api/approval/applications", {
+      const response = await fetch("/api/workflow/applications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
