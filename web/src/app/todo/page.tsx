@@ -6,6 +6,7 @@ import { ensureModuleEnabled } from "@/lib/modules";
 import { RelatedThreadButton } from "@/components/related-thread-button";
 import { TodoStatusSelector } from "@/components/todo-status-selector";
 import { TodoCreateButton } from "@/components/todo-create-button";
+import { GroupAvatar } from "@/components/group-avatar";
 
 type TodoPageProps = {
   searchParams?: Promise<{
@@ -20,7 +21,11 @@ export default async function TodoPage({ searchParams }: TodoPageProps) {
   }
   await ensureModuleEnabled(session.groupId, "todo");
 
-  const [todos, members] = await Promise.all([
+  const [group, todos, members] = await Promise.all([
+    prisma.group.findUnique({
+      where: { id: session.groupId },
+      select: { name: true, logoUrl: true },
+    }),
     prisma.todoItem.findMany({
       where: { groupId: session.groupId },
       orderBy: { createdAt: "desc" },
@@ -35,6 +40,9 @@ export default async function TodoPage({ searchParams }: TodoPageProps) {
       select: { id: true, displayName: true },
     }),
   ]);
+  if (!group) {
+    redirect("/join");
+  }
   const resolvedParams = (await searchParams) ?? {};
   const focusId = Number(resolvedParams.focus ?? "");
 
@@ -42,16 +50,24 @@ export default async function TodoPage({ searchParams }: TodoPageProps) {
     <div className="min-h-screen py-10">
       <div className="page-shell space-y-8">
         <header className="rounded-2xl border border-zinc-200 bg-white/80 p-6 shadow-sm backdrop-blur">
-          <p className="text-sm uppercase tracking-wide text-zinc-500">
-            Knot ToDo
-          </p>
-          <h1 className="text-3xl font-semibold text-zinc-900">
-            会話から生まれた「やること」を一元管理
-          </h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            Knot Chatから変換されたタスクが並びます。担当や期限が固まり次第、
-            状態を更新してください。タスクからチャットに戻り、コンテキストをすぐ確認できます。
-          </p>
+          <div className="flex items-center gap-4">
+            <GroupAvatar
+              name={group.name}
+              logoUrl={group.logoUrl}
+              sizeClassName="h-12 w-12"
+            />
+            <div>
+              <p className="text-sm uppercase tracking-wide text-zinc-500">
+                Knot ToDo
+              </p>
+              <h1 className="text-3xl font-semibold text-zinc-900">
+                決まったことを、ちゃんと終わらせる。
+              </h1>
+              <p className="mt-2 text-sm text-zinc-600">
+                チャットや決定事項を、担当・期限つきの実行タスクとして管理する。
+              </p>
+            </div>
+          </div>
         </header>
 
         <section className="space-y-4">

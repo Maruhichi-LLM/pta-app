@@ -4,6 +4,7 @@ import { getSessionFromCookies } from "@/lib/session";
 import { ensureModuleEnabled, isModuleEnabled } from "@/lib/modules";
 import { prisma } from "@/lib/prisma";
 import { ROLE_ADMIN } from "@/lib/roles";
+import { GroupAvatar } from "@/components/group-avatar";
 
 export default async function ApprovalLandingPage() {
   const session = await getSessionFromCookies();
@@ -12,13 +13,20 @@ export default async function ApprovalLandingPage() {
   }
   await ensureModuleEnabled(session.groupId, "approval");
 
-  const [member, approvalEnabled] = await Promise.all([
+  const [group, member, approvalEnabled] = await Promise.all([
+    prisma.group.findUnique({
+      where: { id: session.groupId },
+      select: { name: true, logoUrl: true },
+    }),
     prisma.member.findUnique({
       where: { id: session.memberId },
       select: { role: true },
     }),
     isModuleEnabled(session.groupId, "approval"),
   ]);
+  if (!group) {
+    redirect("/join");
+  }
 
   if (!approvalEnabled) {
     redirect("/home");
@@ -29,15 +37,24 @@ export default async function ApprovalLandingPage() {
     <div className="min-h-screen bg-transparent py-12">
       <div className="page-shell space-y-6">
         <header className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <p className="text-sm uppercase tracking-wide text-zinc-500">
-            Knot Workflow
-          </p>
-          <h1 className="mt-1 text-3xl font-semibold text-zinc-900">
-            申請・承認ワークフロー
-          </h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            備品購入や休暇など、団体内の申請をここで一元管理します。
-          </p>
+          <div className="flex items-center gap-4">
+            <GroupAvatar
+              name={group.name}
+              logoUrl={group.logoUrl}
+              sizeClassName="h-12 w-12"
+            />
+            <div>
+              <p className="text-sm uppercase tracking-wide text-zinc-500">
+                Knot Workflow
+              </p>
+              <h1 className="mt-1 text-3xl font-semibold text-zinc-900">
+                団体の流れを、迷わせない。
+              </h1>
+              <p className="mt-2 text-sm text-zinc-600">
+                申請・承認・処理の流れを、団体共通のルールとして整理する。
+              </p>
+            </div>
+          </div>
         </header>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Link

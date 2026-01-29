@@ -5,6 +5,7 @@ import { EventList, type EventDisplay } from "@/components/event-list";
 import { EventForm } from "@/components/event-form";
 import { ROLE_ADMIN } from "@/lib/roles";
 import { ensureModuleEnabled, isModuleEnabled } from "@/lib/modules";
+import { GroupAvatar } from "@/components/group-avatar";
 
 function buildInitialStartsAt(date?: string) {
   if (!date) return undefined;
@@ -109,31 +110,42 @@ export default async function EventsPage({
     <div className="min-h-screen py-10">
       <div className="page-shell flex flex-col gap-8">
         <header className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <p className="text-sm uppercase tracking-wide text-zinc-500">
-            Knot Event
-          </p>
-          <h1 className="text-3xl font-semibold text-zinc-900">
-            {data.group.name}
-          </h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            予定の共有と参加可否を確認できます。
-          </p>
-          {canEdit ? (
-            <div className="mt-4 flex flex-wrap gap-3 text-sm">
-              <a
-                href="/api/event-exports/csv"
-                className="rounded-lg border border-zinc-300 px-4 py-2 text-zinc-600 hover:bg-zinc-50"
-              >
-                CSVダウンロード
-              </a>
-              <a
-                href="/api/event-exports/pdf"
-                className="rounded-lg border border-zinc-300 px-4 py-2 text-zinc-600 hover:bg-zinc-50"
-              >
-                PDFダウンロード
-              </a>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <GroupAvatar
+                name={data.group.name}
+                logoUrl={data.group.logoUrl}
+                sizeClassName="h-12 w-12"
+              />
+              <div>
+                <p className="text-sm uppercase tracking-wide text-zinc-500">
+                  Knot Event
+                </p>
+                <h1 className="text-3xl font-semibold text-zinc-900">
+                  集まる理由を、ひとつに。
+                </h1>
+                <p className="mt-2 text-sm text-zinc-600">
+                  イベントの作成、出欠管理、関連収支・記録を一元管理する。
+                </p>
+              </div>
             </div>
-          ) : null}
+            {canEdit ? (
+              <div className="flex flex-wrap gap-3 text-sm">
+                <a
+                  href="/api/event-exports/csv"
+                  className="rounded-lg border border-zinc-300 px-4 py-2 text-zinc-600 hover:bg-zinc-50"
+                >
+                  CSVダウンロード
+                </a>
+                <a
+                  href="/api/event-exports/pdf"
+                  className="rounded-lg border border-zinc-300 px-4 py-2 text-zinc-600 hover:bg-zinc-50"
+                >
+                  PDFダウンロード
+                </a>
+              </div>
+            ) : null}
+          </div>
         </header>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.8fr)_minmax(320px,1fr)]">

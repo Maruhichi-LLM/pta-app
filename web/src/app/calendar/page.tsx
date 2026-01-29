@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionFromCookies } from "@/lib/session";
 import { ensureModuleEnabled, isModuleEnabled } from "@/lib/modules";
 import { CalendarCreatePanel } from "@/components/calendar-create-panel";
+import { GroupAvatar } from "@/components/group-avatar";
 
 const WEEK_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 const monthFormatter = new Intl.DateTimeFormat("ja-JP", {
@@ -220,10 +221,25 @@ export default async function CalendarPage({
         <header className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex-1">
-              <p className="text-sm uppercase tracking-wide text-sky-600">
-                Knot Calendar
-              </p>
-              <div className="mt-1 flex items-center gap-3">
+              <div className="flex items-start gap-4">
+                <GroupAvatar
+                  name={member.group.name}
+                  logoUrl={member.group.logoUrl}
+                  sizeClassName="h-12 w-12"
+                />
+                <div>
+                  <p className="text-sm uppercase tracking-wide text-sky-600">
+                    Knot Calendar
+                  </p>
+                  <h1 className="mt-1 text-3xl font-semibold text-zinc-900">
+                    団体の予定が、一目でわかる。
+                  </h1>
+                  <p className="mt-2 text-sm text-zinc-600">
+                    団体のイベントや予定を、月単位で一覧・把握できるカレンダー。
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center gap-3">
                 <Link
                   href={prevMonthUrl}
                   className="rounded-full p-2 text-zinc-600 transition hover:bg-zinc-100"
@@ -231,9 +247,9 @@ export default async function CalendarPage({
                 >
                   ←
                 </Link>
-                <h1 className="text-3xl font-semibold text-zinc-900">
+                <h2 className="text-2xl font-semibold text-zinc-900">
                   {monthFormatter.format(displayMonth)}
-                </h1>
+                </h2>
                 <Link
                   href={nextMonthUrl}
                   className="rounded-full p-2 text-zinc-600 transition hover:bg-zinc-100"

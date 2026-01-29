@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useCallback, useState } from "react";
+import { GroupAvatar } from "@/components/group-avatar";
 
 type MemberOption = {
   id: number;
@@ -70,6 +71,8 @@ type AuditClientProps = {
   initialLogs: SerializedAuditLog[];
   initialFindings: SerializedFinding[];
   rules: InternalControlRuleView[];
+  groupName: string;
+  groupLogoUrl?: string | null;
   enumOptions: {
     targetTypes: string[];
     statuses: string[];
@@ -92,6 +95,8 @@ export default function AuditClient({
   initialLogs,
   initialFindings,
   rules,
+  groupName,
+  groupLogoUrl,
   enumOptions,
 }: AuditClientProps) {
   const [activeTab, setActiveTab] = useState<TabOption>("logs");
@@ -99,21 +104,33 @@ export default function AuditClient({
   return (
     <div className="space-y-6">
       <header className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <p className="text-sm uppercase tracking-wide text-zinc-500">
-          Knot Audit
-        </p>
-        <h1 className="mt-1 text-3xl font-semibold text-zinc-900">
-          監査ログと指摘を一元管理
-        </h1>
-        <p className="mt-2 text-sm text-zinc-600">
-          監査ログ、内部統制のチェック結果、指摘の対応状況をまとめて確認できます。
-        </p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+        <div className="flex items-center gap-4">
+          <GroupAvatar
+            name={groupName}
+            logoUrl={groupLogoUrl}
+            sizeClassName="h-12 w-12"
+          />
+          <div>
+            <p className="text-sm uppercase tracking-wide text-zinc-500">
+              Knot Audit
+            </p>
+            <h1 className="mt-1 text-3xl font-semibold text-zinc-900">
+              ちゃんとしている、を証明する。
+            </h1>
+            <p className="mt-2 text-sm text-zinc-600">
+              会計や運営の履歴をもとに、監査・内部統制を可視化する。
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="grid gap-4 sm:grid-cols-3">
           <MetricCard label="直近30日の監査ログ" value={stats.recentLogs} tint="sky" />
           <MetricCard label="アクティブな統制ルール" value={stats.activeRules} tint="emerald" />
           <MetricCard label="未解決指摘" value={stats.openFindings} tint="rose" />
         </div>
-      </header>
+      </section>
 
       <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-center gap-2 border-b border-zinc-100 px-6 pt-4">

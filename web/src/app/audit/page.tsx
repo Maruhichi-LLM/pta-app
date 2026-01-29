@@ -113,13 +113,20 @@ export default async function AuditPage() {
     redirect("/join");
   }
 
-  const [memberOptions, logs, findings, rules, stats] = await Promise.all([
+  const [group, memberOptions, logs, findings, rules, stats] = await Promise.all([
+    prisma.group.findUnique({
+      where: { id: session.groupId },
+      select: { name: true, logoUrl: true },
+    }),
     fetchMemberOptions(session.groupId),
     fetchInitialLogs(session.groupId),
     fetchInitialFindings(session.groupId),
     fetchRules(session.groupId),
     fetchStats(session.groupId),
   ]);
+  if (!group) {
+    redirect("/join");
+  }
 
   return (
     <div className="min-h-screen py-10">
@@ -137,6 +144,8 @@ export default async function AuditPage() {
             ruleType: rule.ruleType,
             isActive: rule.isActive,
           }))}
+          groupName={group.name}
+          groupLogoUrl={group.logoUrl}
           enumOptions={{
             targetTypes: Object.values(AuditTargetType),
             statuses: Object.values(AuditFindingStatus),

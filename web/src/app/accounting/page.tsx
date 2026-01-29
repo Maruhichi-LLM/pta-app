@@ -13,6 +13,7 @@ import { BudgetInputField } from "@/components/budget-input-field";
 import { AccountingSettingsForm } from "@/components/accounting-settings-form";
 import { FiscalYearCloseSection } from "@/components/fiscal-year-close-section";
 import { AccountType } from "@prisma/client";
+import { GroupAvatar } from "@/components/group-avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -1029,15 +1030,24 @@ export default async function LedgerPage({ searchParams }: PageProps) {
     <div className="min-h-screen py-10">
       <div className="page-shell flex flex-col gap-6">
         <header className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <p className="text-sm uppercase tracking-wide text-zinc-500">
-            Knot Accounting
-          </p>
-          <h1 className="text-3xl font-semibold text-zinc-900">
-            {data.group.name}
-          </h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            承認と証憑の管理をここで行います。
-          </p>
+          <div className="flex items-center gap-4">
+            <GroupAvatar
+              name={data.group.name}
+              logoUrl={data.group.logoUrl}
+              sizeClassName="h-12 w-12"
+            />
+            <div>
+              <p className="text-sm uppercase tracking-wide text-zinc-500">
+                Knot Accounting
+              </p>
+              <h1 className="text-3xl font-semibold text-zinc-900">
+                団体のお金を、正しく・わかりやすく。
+              </h1>
+              <p className="mt-2 text-sm text-zinc-600">
+                団体の収入・支出を、承認フローと年度締めつきで正確に管理する。
+              </p>
+            </div>
+          </div>
         </header>
         <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-zinc-900">現在の状況</h2>

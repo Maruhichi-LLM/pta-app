@@ -233,15 +233,24 @@ export default async function ManagementPage() {
     <div className="min-h-screen py-10">
       <div className="page-shell flex flex-col gap-8">
         <header className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <p className="text-sm uppercase tracking-wide text-zinc-500">
-            Knot Management
-          </p>
-          <h1 className="text-3xl font-semibold text-zinc-900">
-            {data.group.name}
-          </h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            招待や権限、メンバー構成など「人」にまつわる管理をここで行います。
-          </p>
+          <div className="flex items-center gap-4">
+            <GroupAvatar
+              name={data.group.name}
+              logoUrl={data.group.logoUrl}
+              sizeClassName="h-12 w-12"
+            />
+            <div>
+              <p className="text-sm uppercase tracking-wide text-zinc-500">
+                Knot Management
+              </p>
+              <h1 className="text-3xl font-semibold text-zinc-900">
+                団体を支える、裏側の司令塔。
+              </h1>
+              <p className="mt-2 text-sm text-zinc-600">
+                メンバー、権限、団体設定など運営の基盤を管理する。
+              </p>
+            </div>
+          </div>
         </header>
 
         {canManage ? (

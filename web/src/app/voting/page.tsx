@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionFromCookies } from "@/lib/session";
 import { ensureModuleEnabled } from "@/lib/modules";
 import { VotingAnonymousBanner } from "@/components/voting-anonymous-banner";
+import { GroupAvatar } from "@/components/group-avatar";
 
 const formatter = new Intl.DateTimeFormat("ja-JP", {
   dateStyle: "medium",
@@ -21,27 +22,45 @@ export default async function VotingPage() {
   }
   await ensureModuleEnabled(session.groupId, "voting");
 
-  const votings = await prisma.voting.findMany({
-    where: { groupId: session.groupId },
-    orderBy: { createdAt: "desc" },
-    include: {
-      createdBy: { select: { displayName: true } },
-    },
-  });
+  const [group, votings] = await Promise.all([
+    prisma.group.findUnique({
+      where: { id: session.groupId },
+      select: { name: true, logoUrl: true },
+    }),
+    prisma.voting.findMany({
+      where: { groupId: session.groupId },
+      orderBy: { createdAt: "desc" },
+      include: {
+        createdBy: { select: { displayName: true } },
+      },
+    }),
+  ]);
+  if (!group) {
+    redirect("/join");
+  }
 
   return (
     <div className="min-h-screen py-10">
       <div className="page-shell space-y-8">
         <header className="rounded-2xl border border-zinc-200 bg-white/80 p-6 shadow-sm backdrop-blur">
-          <p className="text-sm uppercase tracking-wide text-zinc-500">
-            Knot Voting
-          </p>
-          <h1 className="text-3xl font-semibold text-zinc-900">
-            空気を壊さずに決める
-          </h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            みんなの意思を集めて、結論を“見える化”します。投票は匿名で行われ、誰がどれを選んだかは表示されません。
-          </p>
+          <div className="flex items-center gap-4">
+            <GroupAvatar
+              name={group.name}
+              logoUrl={group.logoUrl}
+              sizeClassName="h-12 w-12"
+            />
+            <div>
+              <p className="text-sm uppercase tracking-wide text-zinc-500">
+                Knot Voting
+              </p>
+              <h1 className="text-3xl font-semibold text-zinc-900">
+                みんなの意思を、静かに確実に。
+              </h1>
+              <p className="mt-2 text-sm text-zinc-600">
+                団体内の意思決定を、匿名かつ公平に集計・記録できる投票機能。
+              </p>
+            </div>
+          </div>
         </header>
 
         <VotingAnonymousBanner />

@@ -11,6 +11,7 @@ import {
   resolveInsightPeriod,
 } from "@/lib/insight/metrics";
 import { InsightCard } from "@/components/insight-card";
+import { GroupAvatar } from "@/components/group-avatar";
 
 const STATUS_LABELS = {
   good: "安定",
@@ -41,6 +42,13 @@ export default async function InsightPage({ searchParams }: InsightPageProps) {
     select: { role: true },
   });
   const isAdmin = member?.role === ROLE_ADMIN;
+  const group = await prisma.group.findUnique({
+    where: { id: session.groupId },
+    select: { name: true, logoUrl: true },
+  });
+  if (!group) {
+    redirect("/join");
+  }
 
   const resolvedParams = (await searchParams) ?? {};
   const periodKey = normalizeInsightPeriod(resolvedParams.period ?? "");
@@ -58,16 +66,23 @@ export default async function InsightPage({ searchParams }: InsightPageProps) {
       <div className="page-shell space-y-8">
         <header className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-zinc-500">
-                Knot Insight
-              </p>
-              <h1 className="mt-1 text-3xl font-semibold text-zinc-900">
-                団体運営の気づきを静かに可視化
-              </h1>
-              <p className="mt-2 text-sm text-zinc-600">
-                スコアではなく状態とヒントで、今の運営をゆるやかに捉えます。
-              </p>
+            <div className="flex items-center gap-4">
+              <GroupAvatar
+                name={group.name}
+                logoUrl={group.logoUrl}
+                sizeClassName="h-12 w-12"
+              />
+              <div>
+                <p className="text-xs uppercase tracking-wide text-zinc-500">
+                  Knot Insight
+                </p>
+                <h1 className="mt-1 text-3xl font-semibold text-zinc-900">
+                  団体の今が、数字で見える。
+                </h1>
+                <p className="mt-2 text-sm text-zinc-600">
+                  参加率・投票率・活動量などを横断的に分析・可視化する。
+                </p>
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-sm">
               {INSIGHT_PERIOD_OPTIONS.map((option) => {

@@ -5,6 +5,7 @@ import { getSessionFromCookies } from "@/lib/session";
 import { isPlatformAdminEmail } from "@/lib/admin";
 import { ensureModuleEnabled } from "@/lib/modules";
 import { getFiscalYear, resolveFiscalYearStartMonth } from "@/lib/fiscal-year";
+import { GroupAvatar } from "@/components/group-avatar";
 
 const SOURCE_LABELS: Record<string, string> = {
   CHAT: "Chat",
@@ -48,7 +49,11 @@ export default async function RecordsPage({ searchParams }: RecordsPageProps) {
     where.eventId = eventIdParam;
   }
 
-  const [records, events, fiscalYearStartMonth] = await Promise.all([
+  const [group, records, events, fiscalYearStartMonth] = await Promise.all([
+    prisma.group.findUnique({
+      where: { id: session.groupId },
+      select: { name: true, logoUrl: true },
+    }),
     prisma.record.findMany({
       where,
       orderBy: { recordDate: "desc" },
@@ -69,6 +74,9 @@ export default async function RecordsPage({ searchParams }: RecordsPageProps) {
     }),
     resolveFiscalYearStartMonth(session.groupId),
   ]);
+  if (!group) {
+    redirect("/join");
+  }
 
   const currentFiscalYear = getFiscalYear(new Date(), fiscalYearStartMonth);
 
@@ -76,15 +84,24 @@ export default async function RecordsPage({ searchParams }: RecordsPageProps) {
     <div className="min-h-screen py-10">
       <div className="page-shell space-y-8">
         <header className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <p className="text-sm uppercase tracking-wide text-emerald-600">
-            Knot Records
-          </p>
-          <h1 className="text-3xl font-semibold text-zinc-900">
-            活動の記録を写真で残す
-          </h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            行事や活動の写真を“記録”として残し、あとから検索・共有できるように整理します。
-          </p>
+          <div className="flex items-center gap-4">
+            <GroupAvatar
+              name={group.name}
+              logoUrl={group.logoUrl}
+              sizeClassName="h-12 w-12"
+            />
+            <div>
+              <p className="text-sm uppercase tracking-wide text-emerald-600">
+                Knot Records
+              </p>
+              <h1 className="text-3xl font-semibold text-zinc-900">
+                活動の記憶を、ちゃんと残す。
+              </h1>
+              <p className="mt-2 text-sm text-zinc-600">
+                団体活動の写真を、イベントや会話と結びつけて保存する。
+              </p>
+            </div>
+          </div>
         </header>
 
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-sm text-emerald-900 shadow-sm">

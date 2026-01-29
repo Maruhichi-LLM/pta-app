@@ -4,6 +4,7 @@ import { getSessionFromCookies } from "@/lib/session";
 import { ensureModuleEnabled } from "@/lib/modules";
 import { ROLE_ADMIN, ROLE_ACCOUNTANT } from "@/lib/roles";
 import { AccountingExportButtons } from "@/components/accounting-export-buttons";
+import { GroupAvatar } from "@/components/group-avatar";
 
 export default async function ExportPage() {
   const session = await getSessionFromCookies();
@@ -36,15 +37,24 @@ export default async function ExportPage() {
     <div className="min-h-screen py-10">
       <div className="page-shell flex flex-col gap-8">
         <header className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <p className="text-sm uppercase tracking-wide text-zinc-500">
-            Knot Export
-          </p>
-          <h1 className="text-3xl font-semibold text-zinc-900">
-            {group.name}
-          </h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            各モジュールのデータをCSV・PDF形式でエクスポートできます。
-          </p>
+          <div className="flex items-center gap-4">
+            <GroupAvatar
+              name={group.name}
+              logoUrl={group.logoUrl}
+              sizeClassName="h-12 w-12"
+            />
+            <div>
+              <p className="text-sm uppercase tracking-wide text-zinc-500">
+                Knot Export
+              </p>
+              <h1 className="text-3xl font-semibold text-zinc-900">
+                必要な形で、外に持ち出す。
+              </h1>
+              <p className="mt-2 text-sm text-zinc-600">
+                会計・イベント・記録データを、PDFやCSVで外部提出用に出力する。
+              </p>
+            </div>
+          </div>
         </header>
 
         {canExport ? (

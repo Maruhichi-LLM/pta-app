@@ -6,6 +6,7 @@ import { isPlatformAdminEmail } from "@/lib/admin";
 import { DocumentCategory } from "@prisma/client";
 import { DocumentCreateForm } from "@/components/document-create-form";
 import { DocumentDeleteButton } from "@/components/document-delete-button";
+import { GroupAvatar } from "@/components/group-avatar";
 
 const CATEGORY_LABELS: Record<DocumentCategory, string> = {
   POLICY: "規程・方針",
@@ -50,23 +51,32 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
     where.category = categoryParam;
   }
 
-  const documents = await prisma.document.findMany({
-    where,
-    orderBy: { updatedAt: "desc" },
-    include: {
-      group: { select: { id: true, name: true } },
-      versions: {
-        orderBy: { versionNumber: "desc" },
-        take: 1,
-        select: {
-          id: true,
-          versionNumber: true,
-          createdAt: true,
-          originalFilename: true,
+  const [group, documents] = await Promise.all([
+    prisma.group.findUnique({
+      where: { id: session.groupId },
+      select: { name: true, logoUrl: true },
+    }),
+    prisma.document.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+      include: {
+        group: { select: { id: true, name: true } },
+        versions: {
+          orderBy: { versionNumber: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            versionNumber: true,
+            createdAt: true,
+            originalFilename: true,
+          },
         },
       },
-    },
-  });
+    }),
+  ]);
+  if (!group) {
+    redirect("/join");
+  }
 
   const adminGroups = isAdmin
     ? await prisma.group.findMany({
@@ -81,13 +91,24 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
     <div className="min-h-screen py-10">
       <div className="page-shell space-y-8">
         <header className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <p className="text-sm uppercase tracking-wide text-sky-600">
-            Knot Document
-          </p>
-          <h1 className="text-3xl font-semibold text-zinc-900">Documents</h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            団体の規程・議事録・会計資料など、確定した文書を安全に保管します。
-          </p>
+          <div className="flex items-center gap-4">
+            <GroupAvatar
+              name={group.name}
+              logoUrl={group.logoUrl}
+              sizeClassName="h-12 w-12"
+            />
+            <div>
+              <p className="text-sm uppercase tracking-wide text-sky-600">
+                Knot Document
+              </p>
+              <h1 className="text-3xl font-semibold text-zinc-900">
+                決まったことの、最終保存場所。
+              </h1>
+              <p className="mt-2 text-sm text-zinc-600">
+                議事録や成果物など、確定した文書を安全に保管・共有する。
+              </p>
+            </div>
+          </div>
         </header>
 
         <section className="rounded-2xl border border-sky-200 bg-sky-50 p-6 text-sm text-sky-900 shadow-sm">

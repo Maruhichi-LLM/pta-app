@@ -6,6 +6,7 @@ import { getSessionFromCookies } from "@/lib/session";
 import { ensureModuleEnabled } from "@/lib/modules";
 import { ensureFreeThread } from "@/lib/chat";
 import { ThreadStatusToggle } from "@/components/thread-status-toggle";
+import { GroupAvatar } from "@/components/group-avatar";
 
 const SOURCE_TYPE_LABELS: Record<ThreadSourceType, string> = {
   TODO: "ToDo",
@@ -30,15 +31,24 @@ export default async function ChatPage() {
   await ensureModuleEnabled(session.groupId, "chat");
   await ensureFreeThread(session.groupId);
 
-  const threads = await prisma.chatThread.findMany({
-    where: { groupId: session.groupId },
-    orderBy: { updatedAt: "desc" },
-    include: {
-      _count: {
-        select: { messages: true },
+  const [group, threads] = await Promise.all([
+    prisma.group.findUnique({
+      where: { id: session.groupId },
+      select: { name: true, logoUrl: true },
+    }),
+    prisma.chatThread.findMany({
+      where: { groupId: session.groupId },
+      orderBy: { updatedAt: "desc" },
+      include: {
+        _count: {
+          select: { messages: true },
+        },
       },
-    },
-  });
+    }),
+  ]);
+  if (!group) {
+    redirect("/join");
+  }
 
   const freeThread = threads.find(
     (thread) => thread.sourceType === ThreadSourceType.FREE
@@ -48,15 +58,24 @@ export default async function ChatPage() {
     <div className="min-h-screen py-10">
       <div className="page-shell flex flex-col gap-8">
         <header className="rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-sm">
-          <p className="text-sm uppercase tracking-wide text-sky-600">
-            Knot Chat
-          </p>
-          <h1 className="text-3xl font-semibold text-zinc-900">
-            案件ごとのThreadで意思決定を結ぶ
-          </h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            Threadは案件の最小単位です。FREEスレッドは雑談や未確定案件を扱い、その他のThreadはToDoや会計、ドキュメントなど特定の成果物と結びつきます。
-          </p>
+          <div className="flex items-center gap-4">
+            <GroupAvatar
+              name={group.name}
+              logoUrl={group.logoUrl}
+              sizeClassName="h-12 w-12"
+            />
+            <div>
+              <p className="text-sm uppercase tracking-wide text-sky-600">
+                Knot Chat
+              </p>
+              <h1 className="text-3xl font-semibold text-zinc-900">
+                話したことを、すべての始まりに。
+              </h1>
+              <p className="mt-2 text-sm text-zinc-600">
+                団体の会話を起点に、ToDo・会計・記録へそのまま変換できる意思決定ハブ。
+              </p>
+            </div>
+          </div>
           {freeThread ? (
             <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
               <span className="text-zinc-500">雑談・検討用スレッド</span>
